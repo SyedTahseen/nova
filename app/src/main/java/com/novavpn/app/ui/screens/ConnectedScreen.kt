@@ -1,6 +1,6 @@
 package com.novavpn.app.ui.screens
 
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -30,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -86,17 +85,15 @@ fun ConnectedScreen(
         Modifier
             .fillMaxSize()
             .background(Nova.Black)
-            .drawBehind {
-                drawRect(
-                    Brush.radialGradient(
-                        0f to Color(0xFF3A4200).copy(alpha = 0.85f),
-                        0.5f to Color(0xFF1A1D00).copy(alpha = 0.6f),
-                        1f to Color.Transparent,
-                        center = Offset(size.width / 2f, size.height * 0.27f),
-                        radius = size.width * 1.25f,
-                    ),
-                )
-            },
+            .background(
+                Brush.radialGradient(
+                    0f to Color(0xFF3A4200).copy(alpha = 0.75f),
+                    0.55f to Color(0xFF141800).copy(alpha = 0.35f),
+                    1f to Color.Transparent,
+                    center = Offset(540f, 330f),
+                    radius = 1100f,
+                ),
+            ),
     ) {
         Column(
             Modifier
@@ -107,38 +104,36 @@ fun ConnectedScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Orb + status + timer
-            Spacer(Modifier.height(16.dp))
             Box(
-                Modifier.fillMaxWidth().height(290.dp),
+                Modifier.fillMaxWidth().height(330.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 OrbView(
-                    Modifier.requiredSize(345.dp),
+                    Modifier.size(330.dp),
                     speed = if (live) 1f else 4f,
-                    radiusFraction = 0.84f,
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         statusText,
                         color = if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         formatElapsed(elapsedSec),
                         color = Nova.White,
-                        fontSize = 44.sp,
+                        fontSize = 38.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                     )
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
 
             // Location card
-            val cardShape = RoundedCornerShape(28.dp)
+            val cardShape = RoundedCornerShape(24.dp)
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -146,38 +141,37 @@ fun ConnectedScreen(
                     .background(Nova.Card.copy(alpha = 0.92f))
                     .border(1.dp, Nova.CardBorder, cardShape)
                     .clickable(onClick = onOpenRegions)
-                    .padding(start = 32.dp, end = 6.5.dp, top = 6.5.dp, bottom = 6.5.dp),
+                    .padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     vpn.regionLabel ?: "",
                     color = Nova.White,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
                 )
                 Box(
                     Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.Transparent)
-                        .border(1.dp, Nova.CardBorder, RoundedCornerShape(26.dp)),
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Nova.CardRaised)
+                        .border(1.dp, Nova.CardBorder, RoundedCornerShape(18.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChevronIcon(Nova.White, Modifier.size(24.dp), strokeWidth = 1.6.dp)
+                    ChevronIcon(Nova.White, Modifier.size(22.dp))
                 }
             }
 
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(10.dp))
 
             // Speed cards
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SpeedCard("Download", speed.downMbps, DOWN_STEPS, Modifier.weight(1f))
                 SpeedCard("Upload", speed.upMbps, UP_STEPS, Modifier.weight(1f))
             }
 
             Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(20.dp))
 
             SlideToggle(
                 label = "Disconnect",
@@ -194,38 +188,35 @@ fun ConnectedScreen(
 private val DOWN_STEPS = floatArrayOf(5f, 15f, 30f, 60f, 100f)
 private val UP_STEPS = floatArrayOf(2f, 8f, 15f, 30f, 60f)
 
-/** Slight per-bar height variation, as in the design. */
-private val BAR_HEIGHTS = intArrayOf(38, 35, 38, 35, 40)
-
 @Composable
 private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: Modifier) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(24.dp)
     Column(
         modifier
             .clip(shape)
             .background(Nova.Card.copy(alpha = 0.92f))
             .border(1.dp, Nova.CardBorder, shape)
-            .padding(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
-        Text(title, color = Nova.TextMuted, fontSize = 17.sp)
-        Spacer(Modifier.height(26.dp))
+        Text(title, color = Nova.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(start = 2.dp))
+        Spacer(Modifier.height(10.dp))
 
         val level = if (mbps < 0.05f) -1 else steps.indexOfFirst { mbps <= it }.let { if (it == -1) 4 else it }
         SpeedBars(level)
 
-        Spacer(Modifier.height(18.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(start = 2.dp)) {
             Text(
                 formatSpeed(mbps),
                 color = Nova.White,
-                fontSize = 44.sp,
+                fontSize = 38.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 " mb/s",
                 color = Nova.TextMuted,
-                fontSize = 18.sp,
-                modifier = Modifier.padding(bottom = 8.dp),
+                fontSize = 15.sp,
+                modifier = Modifier.padding(bottom = 7.dp),
             )
         }
     }
@@ -235,16 +226,16 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
 @Composable
 private fun SpeedBars(level: Int) {
     Row(
-        Modifier.fillMaxWidth().height(60.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        Modifier.fillMaxWidth().height(62.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         for (i in 0 until 5) {
             val lit = i == level
-            val barH by animateDpAsState((BAR_HEIGHTS[i] + if (lit) 2 else 0).dp, tween(250), label = "barH$i")
+            val lift by animateFloatAsState(if (lit) 1f else 0f, tween(250), label = "lift$i")
             Box(Modifier.weight(1f).fillMaxSize()) {
                 // hatch strip
                 Canvas(Modifier.fillMaxWidth().height(22.dp).align(Alignment.TopCenter)) {
-                    val r = 6.dp.toPx()
+                    val r = 5.dp.toPx()
                     val clip = Path().apply {
                         addRoundRect(
                             androidx.compose.ui.geometry.RoundRect(
@@ -257,7 +248,7 @@ private fun SpeedBars(level: Int) {
                         var x = -size.height
                         while (x < size.width) {
                             drawLine(
-                                Color(0xFF2D2D31),
+                                Color(0xFF2A2A2E),
                                 Offset(x, size.height),
                                 Offset(x + size.height, 0f),
                                 strokeWidth = 1.2.dp.toPx(),
@@ -270,16 +261,17 @@ private fun SpeedBars(level: Int) {
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
+                        .offset(y = (-6 * lift).dp)
                         .fillMaxWidth()
-                        .height(barH)
+                        .height(34.dp)
                         .then(
                             if (lit) Modifier.shadow(
-                                16.dp, RoundedCornerShape(10.dp),
+                                12.dp, RoundedCornerShape(9.dp),
                                 ambientColor = Nova.Lime, spotColor = Nova.Lime,
                             ) else Modifier,
                         )
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (lit) Nova.Lime else Color(0xFF414148)),
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (lit) Nova.Lime else Color(0xFF2E2E33)),
                 )
             }
         }

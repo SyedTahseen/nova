@@ -49,7 +49,7 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
-private const val SPAN_LON = 104.0 // degrees of longitude visible across the screen width
+private const val SPAN_LON = 64.0 // degrees of longitude visible across the screen width
 
 private fun merc(lat: Double): Double {
     val l = lat.coerceIn(-82.0, 82.0)
@@ -120,7 +120,7 @@ fun WorldMap(
     BoxWithConstraints(modifier.fillMaxSize().background(Nova.Ocean)) {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
-        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.40f)
+        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.34f)
 
         // Map layer
         Canvas(Modifier.fillMaxSize()) {
@@ -136,8 +136,8 @@ fun WorldMap(
             // Fade into the black controls at the bottom
             drawRect(
                 Brush.verticalGradient(
-                    0.65f to Color.Transparent,
-                    1f to Nova.Black.copy(alpha = 0.55f),
+                    0.55f to Color.Transparent,
+                    1f to Nova.Black.copy(alpha = 0.85f),
                 ),
             )
         }
@@ -153,11 +153,11 @@ fun WorldMap(
                 style = Stroke(1.5.dp.toPx()),
             )
             drawCircle(Nova.Lime.copy(alpha = 0.25f), 9.dp.toPx(), m)
-            drawCircle(Nova.Lime, 5.dp.toPx(), m)
+            drawCircle(Nova.Lime, 4.5.dp.toPx(), m)
         }
 
         // Floating label pill above the marker
-        val gapPx = with(density) { 17.dp.toPx() }
+        val gapPx = with(density) { 22.dp.toPx() }
         val mx = proj.x(selected.lon)
         val my = proj.y(selected.lat)
         Row(
@@ -168,14 +168,14 @@ fun WorldMap(
                         p.place((mx - p.width / 2f).roundToInt(), (my - p.height - gapPx).roundToInt())
                     }
                 }
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xE61F1F22))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onMarkerClick,
                 )
-                .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = 5.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -187,9 +187,9 @@ fun WorldMap(
             Text(
                 selected.label,
                 color = Nova.White,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 12.dp),
+                modifier = Modifier.padding(start = 10.dp),
             )
         }
     }
@@ -232,7 +232,7 @@ private fun DrawScope.drawLand(paths: MapPaths, proj: Projection) {
             drawPath(
                 paths.land,
                 Nova.LandBorder,
-                style = Stroke(width = 0.8.dp.toPx() / s, join = StrokeJoin.Round),
+                style = Stroke(width = 1.dp.toPx() / s, join = StrokeJoin.Round),
             )
             drawPath(paths.water, Nova.Ocean)
         }

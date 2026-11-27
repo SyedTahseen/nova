@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
-import com.novavpn.app.ui.components.FlagBadge
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
@@ -74,7 +73,7 @@ fun HomeScreen(
 
             LazyRow(
                 state = listState,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
                 items(regions, key = { it.id }) { region ->
@@ -88,7 +87,7 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(Modifier.height(15.dp))
+            Spacer(Modifier.height(14.dp))
 
             SlideToggle(
                 label = "Connect",
@@ -103,24 +102,34 @@ fun HomeScreen(
 
 @Composable
 private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     Row(
         Modifier
-            .height(48.dp)
+            .height(56.dp)
             .clip(shape)
-            .background(if (selected) Nova.Lime.copy(alpha = 0.12f) else Nova.Card)
+            .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Card)
             .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.CardBorder, shape)
             .clickable(onClick = onClick)
-            .padding(start = 9.dp, end = 17.dp),
+            .padding(start = 8.dp, end = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlagBadge(region.code, 30.dp)
+        FlagBadge(region.flag, size = 38)
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(start = 12.dp),
+            modifier = Modifier.padding(start = 10.dp),
         )
+    }
+}
+
+@Composable
+fun FlagBadge(flag: String, size: Int) {
+    Box(
+        Modifier.size(size.dp).clip(CircleShape).background(Nova.CardRaised),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(flag, fontSize = (size * 0.5f).sp)
     }
 }
