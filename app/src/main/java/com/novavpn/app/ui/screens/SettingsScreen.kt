@@ -58,9 +58,7 @@ fun SettingsScreen(
             Box(
                 Modifier
                     .size(width = 64.dp, height = 48.dp)
-                    .clip(pill)
-                    .background(Nova.Card)
-                    .border(1.dp, Nova.CardBorder, pill)
+                    .chipSurface(pill)
                     .clickable(onClickLabel = "Back", role = Role.Button, onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {

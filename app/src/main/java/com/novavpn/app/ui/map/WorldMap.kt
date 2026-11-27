@@ -169,7 +169,7 @@ fun WorldMap(
                     }
                 }
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xE61F1F22))
+                .background(Color(0xC71F1F22)) // ~78% opaque: slightly translucent
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

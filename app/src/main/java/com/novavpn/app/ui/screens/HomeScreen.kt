@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -115,6 +116,12 @@ fun HomeScreen(
     }
 }
 
+/** Single source of truth for pill/chip fill + border, so the menu pill always matches the region chips. */
+internal fun Modifier.chipSurface(shape: Shape, selected: Boolean = false, fillAlpha: Float = 1f): Modifier = this
+    .clip(shape)
+    .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Card.copy(alpha = fillAlpha))
+    .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.CardBorder, shape)
+
 /** Hamburger pill pinned to the top-left of Home; opens Settings. */
 @Composable
 private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -122,9 +129,7 @@ private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(width = 64.dp, height = 48.dp)
-            .clip(shape)
-            .background(Nova.Card)
-            .border(1.dp, Nova.CardBorder, shape)
+            .chipSurface(shape, fillAlpha = 0.78f) // slightly see-through so the map hints through
             .clickable(onClickLabel = "Open settings", role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -138,9 +143,7 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .height(48.dp)
-            .clip(shape)
-            .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Card)
-            .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.CardBorder, shape)
+            .chipSurface(shape, selected)
             .clickable(onClick = onClick)
             .padding(start = 9.dp, end = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
