@@ -10,6 +10,8 @@ data class Region(
     val premium: Boolean,
     /** vless:// or trojan:// share link for this location's server. */
     val link: String,
+    /** True for servers the user added themselves (stored on device, can be deleted). */
+    val custom: Boolean = false,
 ) {
     val label: String get() = "$city, $country"
     val flag: String get() = flagEmoji(code)

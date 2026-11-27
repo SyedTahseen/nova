@@ -41,6 +41,8 @@ fun NovaApp(
     val speed by VpnController.speed.collectAsStateWithLifecycle()
     val selectedId by vm.selectedId.collectAsStateWithLifecycle()
     val pings by vm.pings.collectAsStateWithLifecycle()
+    val regions by vm.regions.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
 
     var showRegions by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -62,7 +64,7 @@ fun NovaApp(
                 )
             } else {
                 HomeScreen(
-                    regions = vm.regions,
+                    regions = regions,
                     selected = selected,
                     error = vpn.error,
                     onSelect = { vm.select(it.id); VpnController.clearError() },
@@ -97,9 +99,10 @@ fun NovaApp(
             exit = slideOutVertically { it / 6 } + fadeOut(),
         ) {
             RegionsScreen(
-                regions = vm.regions,
+                regions = regions,
                 selectedId = selectedId,
                 pings = pings,
+                sort = sort,
                 onSelect = { r ->
                     vm.select(r.id)
                     showRegions = false
@@ -109,6 +112,11 @@ fun NovaApp(
                 onMoreRegions = {
                     Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
                 },
+                onAddServer = vm::addServer,
+                onDeleteServer = vm::deleteServer,
+                onDeleteAllCustom = vm::deleteAllCustom,
+                onTestAll = vm::refreshPings,
+                onSortChange = vm::setSort,
             )
         }
     }

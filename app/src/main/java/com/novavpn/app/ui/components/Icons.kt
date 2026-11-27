@@ -125,3 +125,55 @@ fun HamburgerIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
         }
     }
 }
+
+/** Magnifying glass. */
+@Composable
+fun SearchIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val w = size.width
+        val stroke = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(color, radius = w * 0.28f, center = Offset(w * 0.45f, w * 0.45f), style = stroke)
+        drawLine(
+            color,
+            Offset(w * 0.66f, w * 0.66f),
+            Offset(w * 0.84f, w * 0.84f),
+            strokeWidth = 2.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+/** Plus sign. */
+@Composable
+fun PlusIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = 2.dp.toPx()
+        drawLine(color, Offset(w * 0.2f, h * 0.5f), Offset(w * 0.8f, h * 0.5f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.5f, h * 0.2f), Offset(w * 0.5f, h * 0.8f), sw, StrokeCap.Round)
+    }
+}
+
+/** Three vertical dots – the overflow menu glyph. */
+@Composable
+fun MoreIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val r = size.width * 0.075f
+        for (f in listOf(0.24f, 0.5f, 0.76f)) {
+            drawCircle(color, radius = r, center = Offset(size.width * 0.5f, size.height * f))
+        }
+    }
+}
+
+/** X – closes the search field. */
+@Composable
+fun CloseIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = 2.dp.toPx()
+        drawLine(color, Offset(w * 0.26f, h * 0.26f), Offset(w * 0.74f, h * 0.74f), sw, StrokeCap.Round)
+        drawLine(color, Offset(w * 0.74f, h * 0.26f), Offset(w * 0.26f, h * 0.74f), sw, StrokeCap.Round)
+    }
+}

@@ -5,6 +5,7 @@ import com.novavpn.app.core.ServerLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -27,6 +28,46 @@ object RegionRepository {
                 link = o.getString("link"),
             )
         }
+    }
+
+    private const val PREFS = "nova"
+    private const val KEY_CUSTOM = "custom_regions"
+
+    /** Servers the user added from the Regions screen. */
+    fun loadCustom(context: Context): List<Region> {
+        val text = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_CUSTOM, null) ?: return emptyList()
+        return runCatching {
+            val arr = JSONArray(text)
+            List(arr.length()) { i ->
+                val o = arr.getJSONObject(i)
+                Region(
+                    id = o.getString("id"),
+                    city = o.getString("city"),
+                    country = o.getString("country"),
+                    code = o.optString("code", ""),
+                    lat = o.optDouble("lat", 0.0),
+                    lon = o.optDouble("lon", 0.0),
+                    premium = false,
+                    link = o.getString("link"),
+                    custom = true,
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveCustom(context: Context, regions: List<Region>) {
+        val arr = JSONArray()
+        regions.filter { it.custom }.forEach { r ->
+            arr.put(
+                JSONObject()
+                    .put("id", r.id).put("city", r.city).put("country", r.country)
+                    .put("code", r.code).put("lat", r.lat).put("lon", r.lon)
+                    .put("link", r.link),
+            )
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_CUSTOM, arr.toString()).apply()
     }
 
     /** TCP connect time to the server in ms, or null if unreachable. */
