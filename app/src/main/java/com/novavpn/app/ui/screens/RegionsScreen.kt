@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -85,11 +86,11 @@ fun RegionsScreen(
 
 @Composable
 private fun Banner(regions: List<Region>, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(30.dp)
+    val shape = RoundedCornerShape(26.dp)
     Box(
         Modifier
             .fillMaxWidth()
-            .height(176.dp)
+            .height(213.dp)
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
@@ -102,26 +103,26 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         // Orb peeking in from the right edge
         OrbView(
             Modifier
-                .size(260.dp)
+                .requiredSize(338.dp) // sphere radius ≈ 128dp, centred on the card's right edge
                 .align(Alignment.CenterEnd)
-                .offset(x = 120.dp),
+                .offset(x = 166.dp, y = (-4).dp),
         )
 
         Text(
             "Need more\nregions?",
             color = Nova.White,
-            fontSize = 26.sp,
-            lineHeight = 30.sp,
+            fontSize = 29.sp,
+            lineHeight = 32.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 20.dp, top = 20.dp),
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 13.dp, top = 12.dp),
         )
 
         Box(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(14.dp)
-                .size(54.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .padding(12.dp)
+                .size(65.dp)
+                .clip(RoundedCornerShape(24.dp))
                 .background(Nova.White),
             contentAlignment = Alignment.Center,
         ) {
@@ -129,21 +130,21 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         }
 
         Row(
-            Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 16.dp),
+            Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val flags = regions.take(2).map { it.code }
-            Box(Modifier.width(66.dp).height(30.dp)) {
+            Box(Modifier.width(72.dp).height(28.dp)) {
                 flags.forEachIndexed { i, code ->
                     FlagBadge(
-                        code, 30,
-                        Modifier.offset(x = (i * 20).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                        code, 28,
+                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
                     )
                 }
                 Box(
                     Modifier
-                        .offset(x = (flags.size * 20).dp)
-                        .size(30.dp)
+                        .offset(x = (flags.size * 22).dp)
+                        .size(28.dp)
                         .clip(CircleShape)
                         .background(Nova.White)
                         .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
@@ -153,8 +154,8 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
             Text(
                 "Europe, USA, Canada",
                 color = Nova.TextMuted,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(start = 28.dp),
+                fontSize = 15.sp,
+                modifier = Modifier.padding(start = 20.dp),
             )
         }
     }
