@@ -33,3 +33,12 @@ Three screens from the design: **Home** (map + region chips + slide-to-connect),
 - **Font** is the system sans-serif; drop your design font into `res/font/` and set it in `ui/theme/Theme.kt`.
 - "Premium regions" is only a grouping; there is no billing or locking. The banner's arrow currently shows a toast.
 - Banner text reads "Europe, USA, Canada" (the mockup says "Europa").
+
+## Country flags
+
+Round flags are loaded from `app/src/main/assets/flags/<cc>.png` (ISO 3166 alpha-2, lowercase) by `FlagBadge`.
+Run `pip install cairosvg && python tools/fetch_flags.py` once to download all of them
+(artwork: [circle-flags](https://github.com/HatScripts/circle-flags), MIT). Any country without a file
+falls back to its flag emoji, so new proxy locations only need a `code` in `regions.json`.
+
+The GitHub Action runs `tools/fetch_flags.py` automatically unless `app/src/main/assets/flags/gb.png` is already committed.

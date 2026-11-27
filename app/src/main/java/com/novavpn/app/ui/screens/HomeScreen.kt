@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -31,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
+import com.novavpn.app.ui.components.FlagBadge
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
@@ -114,7 +114,7 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
             .padding(start = 9.dp, end = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlagBadge(region.flag, size = 30)
+        FlagBadge(region.code, 30.dp)
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
@@ -122,16 +122,5 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 12.dp),
         )
-    }
-}
-
-@Composable
-fun FlagBadge(flag: String, size: Int) {
-    Box(
-        Modifier.size(size.dp).clip(CircleShape).background(Nova.CardRaised),
-        contentAlignment = Alignment.Center,
-    ) {
-        // Oversized so the flag fills the whole circle, like a round flag badge.
-        Text(flag, fontSize = (size * 1.15f).sp, modifier = Modifier.wrapContentSize(unbounded = true))
     }
 }

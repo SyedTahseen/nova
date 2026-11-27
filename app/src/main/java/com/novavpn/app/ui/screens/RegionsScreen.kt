@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.CheckIcon
+import com.novavpn.app.ui.components.FlagBadge
 import com.novavpn.app.ui.components.ChevronIcon
 import com.novavpn.app.ui.components.OrbView
 import com.novavpn.app.ui.components.SignalIcon
@@ -135,18 +136,13 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
             Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val flags = regions.take(2).map { it.flag }
+            val flags = regions.take(2).map { it.code }
             Box(Modifier.width(72.dp).height(28.dp)) {
-                flags.forEachIndexed { i, f ->
-                    Box(
-                        Modifier
-                            .offset(x = (i * 22).dp)
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Nova.CardRaised)
-                            .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(f, fontSize = 32.sp, modifier = Modifier.wrapContentSize(unbounded = true)) }
+                flags.forEachIndexed { i, code ->
+                    FlagBadge(
+                        code, 28.dp,
+                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                    )
                 }
                 Box(
                     Modifier
