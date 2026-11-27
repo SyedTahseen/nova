@@ -49,7 +49,7 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
-private const val SPAN_LON = 64.0 // degrees of longitude visible across the screen width
+private const val SPAN_LON = 104.0 // degrees of longitude visible across the screen width
 
 private fun merc(lat: Double): Double {
     val l = lat.coerceIn(-82.0, 82.0)
@@ -120,7 +120,7 @@ fun WorldMap(
     BoxWithConstraints(modifier.fillMaxSize().background(Nova.Ocean)) {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
-        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.34f)
+        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.40f)
 
         // Map layer
         Canvas(Modifier.fillMaxSize()) {
@@ -136,8 +136,8 @@ fun WorldMap(
             // Fade into the black controls at the bottom
             drawRect(
                 Brush.verticalGradient(
-                    0.55f to Color.Transparent,
-                    1f to Nova.Black.copy(alpha = 0.85f),
+                    0.65f to Color.Transparent,
+                    1f to Nova.Black.copy(alpha = 0.55f),
                 ),
             )
         }

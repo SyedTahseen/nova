@@ -1,5 +1,6 @@
 package com.novavpn.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,7 +116,7 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
             .padding(start = 8.dp, end = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlagBadge(region.flag, size = 38)
+        FlagBadge(region.code, size = 38)
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
@@ -124,12 +127,18 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** Round country flag: the flag artwork cropped to fill the circle. Unknown codes show an empty circle. */
 @Composable
-fun FlagBadge(flag: String, size: Int) {
-    Box(
-        Modifier.size(size.dp).clip(CircleShape).background(Nova.CardRaised),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(flag, fontSize = (size * 0.5f).sp)
+fun FlagBadge(code: String, size: Int, modifier: Modifier = Modifier) {
+    val res = FLAG_RES[code.uppercase()]
+    Box(modifier.size(size.dp).clip(CircleShape).background(Nova.CardRaised)) {
+        if (res != null) {
+            Image(
+                painterResource(res),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }

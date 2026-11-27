@@ -132,18 +132,13 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
             Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val flags = regions.take(2).map { it.flag }
+            val flags = regions.take(2).map { it.code }
             Box(Modifier.width(66.dp).height(30.dp)) {
-                flags.forEachIndexed { i, f ->
-                    Box(
-                        Modifier
-                            .offset(x = (i * 20).dp)
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(Nova.CardRaised)
-                            .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(f, fontSize = 15.sp) }
+                flags.forEachIndexed { i, code ->
+                    FlagBadge(
+                        code, 30,
+                        Modifier.offset(x = (i * 20).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                    )
                 }
                 Box(
                     Modifier
