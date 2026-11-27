@@ -22,7 +22,7 @@ object Nova {
     // Map
     val Ocean = Color(0xFF0A0A0B)
     val Land = Color(0xFF1D1D20)
-    val LandBorder = Color(0xFF2B2B2F)
+    val LandBorder = Color(0xFF3A3A40)
     val Grid = Color(0xFF151517)
 }
 

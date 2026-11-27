@@ -29,8 +29,8 @@ jobs:
         with:
           gradle-version: 8.10.2
 
-      # Xray core. Skipped when you commit app/libs/libv2ray.aar yourself.
-      - name: Fetch libv2ray.aar
+      # Xray core, pulled in during the build. Skipped when you commit app/libs/libv2ray.aar yourself.
+      - name: Fetch libv2ray.aar (Xray core)
         if: hashFiles('app/libs/libv2ray.aar') == ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,12 +39,43 @@ jobs:
           gh release download --repo 2dust/AndroidLibXrayLite --pattern 'libv2ray.aar' --dir app/libs
           ls -l app/libs
 
-      - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+      # Country borders for the map (Natural Earth). Skipped when app/src/main/assets/world.bin is committed.
+      - name: Generate world map
+        if: hashFiles('app/src/main/assets/world.bin') == ''
+        run: python3 tools/generate_world_map.py
 
-      - name: Upload APK
+      # Optional: sign with your own key. Add these repository secrets to enable it
+      # (KEYSTORE_BASE64 = `base64 -w0 your.jks`). Without them the release APK is signed
+      # with the debug key, which still installs fine for testing.
+      - name: Prepare signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          fi
+
+      # Release build = R8 shrinking + one APK per CPU architecture + a Play Store bundle.
+      - name: Build release APKs and bundle
+        run: gradle assembleRelease bundleRelease --stacktrace
+
+      - name: Show APK sizes
+        run: ls -lh app/build/outputs/apk/release/*.apk
+
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: nova-vpn-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: nova-vpn-apks
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-vpn-aab
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error

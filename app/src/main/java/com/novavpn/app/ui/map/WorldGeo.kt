@@ -1,13 +1,38 @@
 package com.novavpn.app.ui.map
 
+import android.content.Context
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
 /**
- * Very coarse hand-built continent outlines (lon, lat pairs, flattened) used for the dark map backdrop.
- * They are intentionally simple. To use real geometry, replace [LAND]/[WATER] with polygons generated
- * from Natural Earth (e.g. export your design's map layer and convert it to this format).
+ * Map geometry as lon/lat rings (flattened pairs).
+ *
+ * Normally loaded from assets/world.bin, which tools/generate_world_map.py builds from Natural Earth
+ * country borders. If that file is missing, a very coarse built-in outline (no borders) is used instead.
  */
 object WorldGeo {
 
-    val LAND: List<DoubleArray> = listOf(
+    class MapData(val land: List<DoubleArray>, val water: List<DoubleArray>)
+
+    fun load(context: Context): MapData {
+        val rings = runCatching {
+            parse(context.assets.open("world.bin").use { it.readBytes() })
+        }.getOrNull()
+        return if (!rings.isNullOrEmpty()) MapData(rings, emptyList()) else MapData(FALLBACK_LAND, FALLBACK_WATER)
+    }
+
+    private fun parse(bytes: ByteArray): List<DoubleArray> {
+        val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        val magic = ByteArray(4).also { buf.get(it) }
+        require(String(magic, Charsets.US_ASCII) == "NVM1") { "bad map file" }
+        val rings = buf.int
+        return List(rings) {
+            val n = buf.int
+            DoubleArray(n * 2) { buf.short / 100.0 }
+        }
+    }
+
+    val FALLBACK_LAND: List<DoubleArray> = listOf(
         // Eurasia (incl. Arabia, India, SE Asia, Balkans, Iberia, Scandinavia)
         doubleArrayOf(
             -5.5, 36.0, -9.0, 37.0, -9.5, 39.0, -8.8, 42.0, -9.3, 43.2, -2.0, 43.5, -1.3, 44.5, -1.2, 46.2,
@@ -136,7 +161,7 @@ object WorldGeo {
     )
 
     /** Inland seas, painted over the land in ocean colour. */
-    val WATER: List<DoubleArray> = listOf(
+    val FALLBACK_WATER: List<DoubleArray> = listOf(
         // Black Sea
         doubleArrayOf(
             28.0, 42.0, 28.5, 44.0, 29.7, 45.4, 31.2, 46.6, 33.5, 46.0, 32.5, 45.4, 33.5, 44.5, 35.5, 45.2,

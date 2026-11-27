@@ -29,7 +29,7 @@ Three screens from the design: **Home** (map + region chips + slide-to-connect),
 
 - **Not compiled or run yet.** It was written without an Android SDK or network, so expect to fix a few compile errors on first sync.
 - **Xray TUN API.** `XrayCore.kt` assumes a recent libv2ray that exposes `Libv2ray.newCoreController(...).startLoop(config, tunFd)` and an Xray `tun` inbound. If your AAR has an older API (`newV2RayPoint`/`runLoop`, SOCKS inbound + tun2socks), adapt `XrayCore.kt` and the inbound in `XrayConfigBuilder.kt`.
-- **Map** is a hand-drawn coarse outline with a square grid, not the country-border map in your design. Export your map layer and swap the polygons in `ui/map/WorldGeo.kt` (or draw it as a vector drawable).
+- **Map borders** come from Natural Earth (public domain) via `app/src/main/assets/world.bin`. Generate it once with `python3 tools/generate_world_map.py` and commit it (the GitHub workflow also generates it automatically if it is missing). Without that file the app falls back to a very coarse outline with no borders.
 - **Font** is the system sans-serif; drop your design font into `res/font/` and set it in `ui/theme/Theme.kt`.
 - "Premium regions" is only a grouping; there is no billing or locking. The banner's arrow currently shows a toast.
 - Banner text reads "Europe, USA, Canada" (the mockup says "Europa").

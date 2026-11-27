@@ -2,10 +2,10 @@ package com.novavpn.app.ui.map
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -30,9 +30,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,26 +51,47 @@ import kotlin.math.tan
 
 private const val SPAN_LON = 64.0 // degrees of longitude visible across the screen width
 
+private fun merc(lat: Double): Double {
+    val l = lat.coerceIn(-82.0, 82.0)
+    return ln(tan(PI / 4 + Math.toRadians(l) / 2))
+}
+
 private class Projection(
     val width: Float,
     val centerLon: Double,
     val centerLat: Double,
     val centerY: Float,
 ) {
-    private val scale = (width / Math.toRadians(SPAN_LON)).toFloat() // px per radian
-
-    private fun merc(lat: Double): Double {
-        val l = lat.coerceIn(-82.0, 82.0)
-        return ln(tan(PI / 4 + Math.toRadians(l) / 2))
-    }
+    val scale = (width / Math.toRadians(SPAN_LON)).toFloat() // px per radian
 
     fun x(lon: Double): Float = (width / 2f + Math.toRadians(lon - centerLon) * scale).toFloat()
     fun y(lat: Double): Float = (centerY - (merc(lat) - merc(centerLat)) * scale).toFloat()
 }
 
+/** Map geometry pre-built once in "unit space" (x = lon in radians, y = -mercator), so each frame is just a transform. */
+private class MapPaths(val land: Path, val water: Path)
+
+private fun buildPaths(data: WorldGeo.MapData): MapPaths {
+    fun build(rings: List<DoubleArray>): Path {
+        val path = Path().apply { fillType = PathFillType.NonZero }
+        for (ring in rings) {
+            var i = 0
+            while (i < ring.size) {
+                val x = Math.toRadians(ring[i]).toFloat()
+                val y = (-merc(ring[i + 1])).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                i += 2
+            }
+            path.close()
+        }
+        return path
+    }
+    return MapPaths(build(data.land), build(data.water))
+}
+
 /**
- * Dark map backdrop with a square grid, a lime marker for the selected region and a floating label pill.
- * The camera glides to the selected region whenever it changes.
+ * Dark map backdrop with country borders, a square grid, a lime marker for the selected region and a
+ * floating label pill. The camera glides to the selected region whenever it changes.
  */
 @Composable
 fun WorldMap(
@@ -75,11 +100,15 @@ fun WorldMap(
     onMarkerClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val paths = remember { buildPaths(WorldGeo.load(context)) }
+
     val cLon by animateFloatAsState(selected.lon.toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lon")
     val cLat by animateFloatAsState(selected.lat.toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lat")
 
+    // Read only inside the marker canvas so the pulse doesn't redraw the whole map.
     val pulse = rememberInfiniteTransition(label = "pulse")
-    val ring by pulse.animateFloat(
+    val ring = pulse.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1800, easing = LinearEasing)),
@@ -93,27 +122,16 @@ fun WorldMap(
         val hPx = with(density) { maxHeight.toPx() }
         val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.34f)
 
+        // Map layer
         Canvas(Modifier.fillMaxSize()) {
             drawGrid(proj)
-            LandPaths.draw(this, proj)
+            drawLand(paths, proj)
 
-            // Other servers as faint dots
             others.forEach { r ->
                 if (r.id != selected.id) {
                     drawCircle(Nova.Gray.copy(alpha = 0.7f), 3.dp.toPx(), Offset(proj.x(r.lon), proj.y(r.lat)))
                 }
             }
-
-            // Selected marker with a pulsing ring
-            val m = Offset(proj.x(selected.lon), proj.y(selected.lat))
-            drawCircle(
-                Nova.Lime.copy(alpha = (1f - ring) * 0.5f),
-                radius = 6.dp.toPx() + ring * 22.dp.toPx(),
-                center = m,
-                style = Stroke(1.5.dp.toPx()),
-            )
-            drawCircle(Nova.Lime.copy(alpha = 0.25f), 9.dp.toPx(), m)
-            drawCircle(Nova.Lime, 4.5.dp.toPx(), m)
 
             // Fade into the black controls at the bottom
             drawRect(
@@ -122,6 +140,20 @@ fun WorldMap(
                     1f to Nova.Black.copy(alpha = 0.85f),
                 ),
             )
+        }
+
+        // Marker layer (animates every frame)
+        Canvas(Modifier.fillMaxSize()) {
+            val m = Offset(proj.x(selected.lon), proj.y(selected.lat))
+            val t = ring.value
+            drawCircle(
+                Nova.Lime.copy(alpha = (1f - t) * 0.5f),
+                radius = 6.dp.toPx() + t * 22.dp.toPx(),
+                center = m,
+                style = Stroke(1.5.dp.toPx()),
+            )
+            drawCircle(Nova.Lime.copy(alpha = 0.25f), 9.dp.toPx(), m)
+            drawCircle(Nova.Lime, 4.5.dp.toPx(), m)
         }
 
         // Floating label pill above the marker
@@ -179,29 +211,30 @@ private fun DrawScope.drawGrid(proj: Projection) {
     }
 }
 
-private object LandPaths {
-    fun draw(scope: DrawScope, proj: Projection) = with(scope) {
-        val border = Stroke(1.dp.toPx())
-        WorldGeo.LAND.forEach { poly ->
-            val p = build(poly, proj)
-            drawPath(p, Nova.Land)
-            drawPath(p, Nova.LandBorder, style = border)
-        }
-        WorldGeo.WATER.forEach { poly ->
-            drawPath(build(poly, proj), Nova.Ocean)
-        }
+private fun DrawScope.drawLand(paths: MapPaths, proj: Projection) {
+    val s = proj.scale
+    val halfSpan = SPAN_LON / 2
+    // Also draw a wrapped copy when the view crosses the antimeridian.
+    val shifts = buildList {
+        add(0)
+        if (proj.centerLon - halfSpan < -180) add(-1)
+        if (proj.centerLon + halfSpan > 180) add(1)
     }
+    val ty = proj.centerY + (merc(proj.centerLat) * s).toFloat() // screen y = ty + (-merc(lat)) * s
 
-    private fun build(poly: DoubleArray, proj: Projection): Path {
-        val path = Path()
-        var i = 0
-        while (i < poly.size) {
-            val x = proj.x(poly[i])
-            val y = proj.y(poly[i + 1])
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-            i += 2
+    for (k in shifts) {
+        val tx = (proj.width / 2f + (k * 2.0 * PI - Math.toRadians(proj.centerLon)) * s).toFloat()
+        withTransform({
+            translate(left = tx, top = ty)
+            scale(scaleX = s, scaleY = s, pivot = Offset.Zero)
+        }) {
+            drawPath(paths.land, Nova.Land)
+            drawPath(
+                paths.land,
+                Nova.LandBorder,
+                style = Stroke(width = 1.dp.toPx() / s, join = StrokeJoin.Round),
+            )
+            drawPath(paths.water, Nova.Ocean)
         }
-        path.close()
-        return path
     }
 }
