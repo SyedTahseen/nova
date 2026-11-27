@@ -20,10 +20,10 @@ object Nova {
     val Gray = Color(0xFF5A5A60)
 
     // Map
-    val Ocean = Color(0xFF030303)
-    val Land = Color(0xFF1A1A1C)
-    val LandBorder = Color(0xFF2B2B2F)
-    val Grid = Color(0xFF111113)
+    val Ocean = Color(0xFF0A0A0B)
+    val Land = Color(0xFF1D1D20)
+    val LandBorder = Color(0xFF3A3A40)
+    val Grid = Color(0xFF151517)
 }
 
 @Composable
