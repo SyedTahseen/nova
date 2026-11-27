@@ -76,7 +76,7 @@ fun HomeScreen(
 
             LazyRow(
                 state = listState,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
                 items(regions, key = { it.id }) { region ->
@@ -105,24 +105,24 @@ fun HomeScreen(
 
 @Composable
 private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(24.dp)
     Row(
         Modifier
-            .height(56.dp)
+            .height(48.dp)
             .clip(shape)
             .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Card)
             .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.CardBorder, shape)
             .clickable(onClick = onClick)
-            .padding(start = 8.dp, end = 20.dp),
+            .padding(start = 9.dp, end = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlagBadge(region.code, size = 38)
+        FlagBadge(region.code, size = 30)
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(start = 10.dp),
+            modifier = Modifier.padding(start = 12.dp),
         )
     }
 }
