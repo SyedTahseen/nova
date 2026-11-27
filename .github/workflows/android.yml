@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write   # needed to create the release
+
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -66,16 +69,24 @@ jobs:
       - name: Show APK sizes
         run: ls -lh app/build/outputs/apk/release/*.apk
 
-      - name: Upload APKs
+      # Pushes / manual runs: publish a pre-release with the APKs attached as plain files
+      # (Releases page -> click the .apk to download it directly, no zip).
+      - name: Publish release with APKs
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build #${{ github.run_number }}
+          prerelease: true
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+
+      # Pull requests can't create releases, so fall back to a (zipped) workflow artifact there.
+      - name: Upload APKs (pull requests)
+        if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: nova-vpn-apks
           path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: nova-vpn-aab
-          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
