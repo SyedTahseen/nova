@@ -47,15 +47,6 @@ jobs:
         if: hashFiles('app/src/main/assets/world.bin') == ''
         run: python3 tools/generate_world_map.py
 
-      # Round country flags (circle-flags, MIT). Skipped when you commit app/src/main/assets/flags/gb.png.
-      # Missing flags fall back to emoji in the app, so a partial download never breaks the build.
-      - name: Fetch country flags
-        if: hashFiles('app/src/main/assets/flags/gb.png') == ''
-        run: |
-          sudo apt-get install -y --no-install-recommends libcairo2
-          pip install cairosvg
-          python3 tools/fetch_flags.py
-
       # Optional: sign with your own key. Add these repository secrets to enable it
       # (KEYSTORE_BASE64 = `base64 -w0 your.jks`). Without them the release APK is signed
       # with the debug key, which still installs fine for testing.
