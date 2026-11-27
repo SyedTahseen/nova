@@ -12,15 +12,15 @@ import androidx.compose.ui.unit.dp
 import com.novavpn.app.ui.theme.Nova
 
 /**
- * Frosted-glass look: dark translucent tint, a soft top-to-bottom sheen, and a hairline border
+ * Frosted-glass look: translucent Nova.Pill tint, a soft top-to-bottom sheen, and a hairline border
  * that catches light on the top-left edge. (No backdrop blur – Compose has none built in.)
  */
 fun Modifier.glassSurface(shape: Shape): Modifier = this
     .clip(shape)
-    .background(Nova.Card.copy(alpha = 0.55f))
+    .background(Nova.Pill.copy(alpha = 0.68f))
     .background(
         Brush.verticalGradient(
-            listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.03f)),
+            listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.02f)),
         ),
     )
     .border(

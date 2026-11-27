@@ -117,11 +117,11 @@ fun HomeScreen(
     }
 }
 
-/** Single source of truth for pill/chip fill + border, so the menu pill always matches the region chips. */
-internal fun Modifier.chipSurface(shape: Shape, selected: Boolean = false, fillAlpha: Float = 1f): Modifier = this
+/** Solid pill surface (unselected = Nova.Pill). Glass pills use [glassSurface], which tints with the same Nova.Pill. */
+internal fun Modifier.chipSurface(shape: Shape, selected: Boolean = false): Modifier = this
     .clip(shape)
-    .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Card.copy(alpha = fillAlpha))
-    .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.CardBorder, shape)
+    .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Pill)
+    .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.PillBorder, shape)
 
 /** Hamburger pill pinned to the top-left of Home; opens Settings. */
 @Composable

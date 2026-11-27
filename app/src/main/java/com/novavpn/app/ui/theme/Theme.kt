@@ -11,6 +11,10 @@ object Nova {
     val CardRaised = Color(0xFF1C1C1F)
     val CardBorder = Color(0xFF26262A)
 
+    // Pills (region chips, menu pill, map label pill) – one token so they all match.
+    val Pill = Color(0xFF141416)
+    val PillBorder = Color(0xFF26262A)
+
     val Lime = Color(0xFFE4FF4F)
     val White = Color(0xFFFFFFFF)
     val TextMuted = Color(0xFF8C8C92)
