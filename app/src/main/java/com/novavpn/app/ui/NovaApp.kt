@@ -12,13 +12,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novavpn.app.MainViewModel
 import com.novavpn.app.data.Region
@@ -47,6 +52,16 @@ fun NovaApp(
     val selected = vm.region(selectedId)
     val inSession = vpn.status != VpnStatus.Disconnected
 
+    // The design is drawn on a 393dp-wide canvas. On wider phones, scale everything up so the layout keeps
+    // the same proportions instead of looking small; narrower phones keep the design's dp sizes.
+    val baseDensity = LocalDensity.current
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val uiScale = (screenWidthDp / DESIGN_WIDTH_DP).coerceIn(1f, 1.35f)
+    val density = remember(baseDensity, uiScale) {
+        Density(baseDensity.density * uiScale, baseDensity.fontScale)
+    }
+
+    CompositionLocalProvider(LocalDensity provides density) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
         Crossfade(targetState = inSession, label = "root") { connected ->
             if (connected) {
@@ -92,4 +107,7 @@ fun NovaApp(
             )
         }
     }
+    }
 }
+
+private const val DESIGN_WIDTH_DP = 393f

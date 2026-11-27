@@ -123,8 +123,8 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         Box(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(10.dp)
-                .size(66.dp)
+                .padding(12.dp)
+                .size(65.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Nova.White),
             contentAlignment = Alignment.Center,
@@ -175,7 +175,7 @@ private fun RegionRow(region: Region, selected: Boolean, pingMs: Int?, onClick: 
             .background(bg)
             .then(if (selected) Modifier else Modifier.border(1.dp, Nova.CardBorder, shape))
             .clickable(onClick = onClick)
-            .padding(start = 32.dp, end = 7.dp, top = 7.dp, bottom = 7.dp),
+            .padding(start = 32.dp, end = 6.5.dp, top = 6.5.dp, bottom = 6.5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

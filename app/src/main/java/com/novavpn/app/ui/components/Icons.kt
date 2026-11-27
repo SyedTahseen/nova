@@ -44,7 +44,7 @@ fun ChevronIcon(
 /** Three tight, thin chevrons with individual alphas – the "swipe this way" hint. */
 @Composable
 fun TripleChevron(color: Color, alphas: List<Float>, left: Boolean) {
-    Canvas(Modifier.size(32.dp, 18.dp)) {
+    Canvas(Modifier.size(30.dp, 18.dp)) {
         val step = 10.dp.toPx()
         val cw = 6.5.dp.toPx()
         val ch = size.height * 0.9f

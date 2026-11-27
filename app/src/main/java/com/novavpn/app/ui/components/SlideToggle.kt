@@ -64,10 +64,10 @@ fun SlideToggle(
     val haptic = LocalHapticFeedback.current
     val progress = remember { Animatable(0f) }
 
-    val trackHeight = 76.dp
+    val trackHeight = 78.dp
     val knobWidth = 82.dp
-    val knobHeight = 64.dp
-    val pad = 6.dp
+    val knobHeight = 62.dp
+    val pad = 8.dp
     val shape = RoundedCornerShape(trackHeight / 2)
 
     val infinite = rememberInfiniteTransition(label = "hint")
@@ -100,7 +100,7 @@ fun SlideToggle(
         Text(
             text = label,
             color = labelColor,
-            fontSize = 18.sp,
+            fontSize = 19.sp,
             fontWeight = FontWeight.Normal,
             modifier = Modifier
                 .align(Alignment.Center)
@@ -111,7 +111,7 @@ fun SlideToggle(
         Box(
             Modifier
                 .align(if (direction == SlideDirection.Right) Alignment.CenterEnd else Alignment.CenterStart)
-                .padding(horizontal = 28.dp)
+                .padding(horizontal = 32.dp)
                 .alpha((1f - p * 1.6f).coerceIn(0f, 1f)),
         ) {
             TripleChevron(

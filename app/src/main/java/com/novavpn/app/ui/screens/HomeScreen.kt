@@ -118,7 +118,7 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 12.dp),
         )

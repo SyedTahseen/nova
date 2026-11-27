@@ -146,7 +146,7 @@ fun ConnectedScreen(
                     .background(Nova.Card.copy(alpha = 0.92f))
                     .border(1.dp, Nova.CardBorder, cardShape)
                     .clickable(onClick = onOpenRegions)
-                    .padding(start = 32.dp, end = 7.dp, top = 7.dp, bottom = 7.dp),
+                    .padding(start = 32.dp, end = 6.5.dp, top = 6.5.dp, bottom = 6.5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -207,8 +207,8 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
             .border(1.dp, Nova.CardBorder, shape)
             .padding(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
     ) {
-        Text(title, color = Nova.TextMuted, fontSize = 15.sp, modifier = Modifier.padding(start = 0.dp))
-        Spacer(Modifier.height(28.dp))
+        Text(title, color = Nova.TextMuted, fontSize = 17.sp)
+        Spacer(Modifier.height(26.dp))
 
         val level = if (mbps < 0.05f) -1 else steps.indexOfFirst { mbps <= it }.let { if (it == -1) 4 else it }
         SpeedBars(level)
@@ -218,13 +218,13 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
             Text(
                 formatSpeed(mbps),
                 color = Nova.White,
-                fontSize = 42.sp,
+                fontSize = 44.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 " mb/s",
                 color = Nova.TextMuted,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }

@@ -153,7 +153,7 @@ fun WorldMap(
                 style = Stroke(1.5.dp.toPx()),
             )
             drawCircle(Nova.Lime.copy(alpha = 0.25f), 9.dp.toPx(), m)
-            drawCircle(Nova.Lime, 4.5.dp.toPx(), m)
+            drawCircle(Nova.Lime, 5.dp.toPx(), m)
         }
 
         // Floating label pill above the marker
