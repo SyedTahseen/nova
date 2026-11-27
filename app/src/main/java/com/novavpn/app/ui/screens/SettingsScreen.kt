@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.ui.components.ChevronIcon
+import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.theme.Nova
 
 @Composable

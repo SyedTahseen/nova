@@ -28,7 +28,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -37,7 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.HamburgerIcon
-import com.novavpn.app.ui.components.glassSurface
+import com.novavpn.app.ui.components.PILL_OVERLAY_ALPHA
+import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
@@ -117,12 +117,6 @@ fun HomeScreen(
     }
 }
 
-/** Solid pill surface (unselected = Nova.Pill). Glass pills use [glassSurface], which tints with the same Nova.Pill. */
-internal fun Modifier.chipSurface(shape: Shape, selected: Boolean = false): Modifier = this
-    .clip(shape)
-    .background(if (selected) Nova.Lime.copy(alpha = 0.10f) else Nova.Pill)
-    .border(1.dp, if (selected) Nova.Lime.copy(alpha = 0.85f) else Nova.PillBorder, shape)
-
 /** Hamburger pill pinned to the top-left of Home; opens Settings. */
 @Composable
 private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -130,7 +124,7 @@ private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(width = 64.dp, height = 48.dp)
-            .glassSurface(shape)
+            .chipSurface(shape, fillAlpha = PILL_OVERLAY_ALPHA)
             .clickable(onClickLabel = "Open settings", role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
