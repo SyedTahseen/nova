@@ -49,7 +49,7 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
-private const val SPAN_LON = 64.0 // degrees of longitude visible across the screen width
+private const val SPAN_LON = 104.0 // degrees of longitude visible across the screen width
 
 private fun merc(lat: Double): Double {
     val l = lat.coerceIn(-82.0, 82.0)
