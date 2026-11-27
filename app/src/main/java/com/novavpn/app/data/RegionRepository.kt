@@ -1,6 +1,7 @@
 package com.novavpn.app.data
 
 import android.content.Context
+import com.novavpn.app.core.Countries
 import com.novavpn.app.core.ServerLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +14,9 @@ object RegionRepository {
 
     /** Reads the server list bundled in assets/regions.json. */
     fun load(context: Context): List<Region> {
-        val text = context.assets.open("regions.json").bufferedReader().use { it.readText() }
+        val text = runCatching {
+            context.assets.open("regions.json").bufferedReader().use { it.readText() }
+        }.getOrDefault("[]")
         val arr = JSONArray(text)
         return List(arr.length()) { i ->
             val o = arr.getJSONObject(i)
@@ -41,15 +44,31 @@ object RegionRepository {
             val arr = JSONArray(text)
             List(arr.length()) { i ->
                 val o = arr.getJSONObject(i)
+                val link = o.getString("link")
+                var city = o.getString("city")
+                var country = o.getString("country")
+                var code = o.optString("code", "")
+                var lat = o.optDouble("lat", 0.0)
+                var lon = o.optDouble("lon", 0.0)
+                if (code.isBlank()) {
+                    // Servers saved by an older version had no country: work it out from the name/host.
+                    val host = runCatching { ServerLink.parse(link).host }.getOrNull()
+                    val c = Countries.detect(city, host)
+                    city = Countries.cleanName(city).ifBlank { city }
+                    country = c?.name ?: ""
+                    code = c?.code ?: ""
+                    lat = c?.lat ?: lat
+                    lon = c?.lon ?: lon
+                }
                 Region(
                     id = o.getString("id"),
-                    city = o.getString("city"),
-                    country = o.getString("country"),
-                    code = o.optString("code", ""),
-                    lat = o.optDouble("lat", 0.0),
-                    lon = o.optDouble("lon", 0.0),
+                    city = city,
+                    country = country,
+                    code = code,
+                    lat = lat,
+                    lon = lon,
                     premium = false,
-                    link = o.getString("link"),
+                    link = link,
                     custom = true,
                 )
             }
@@ -74,6 +93,7 @@ object RegionRepository {
     suspend fun ping(region: Region): Int? = withContext(Dispatchers.IO) {
         runCatching {
             val server = ServerLink.parse(region.link)
+            if (server.isUdpOnly) return@runCatching null // can't probe UDP with a TCP connect
             val start = System.nanoTime()
             Socket().use { it.connect(InetSocketAddress(server.host, server.port), 2500) }
             ((System.nanoTime() - start) / 1_000_000).toInt()

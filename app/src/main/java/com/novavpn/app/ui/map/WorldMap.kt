@@ -97,7 +97,7 @@ private fun buildPaths(data: WorldGeo.MapData): MapPaths {
  */
 @Composable
 fun WorldMap(
-    selected: Region,
+    selected: Region?,
     others: List<Region>,
     onMarkerClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -105,8 +105,8 @@ fun WorldMap(
     val context = LocalContext.current
     val paths = remember { buildPaths(WorldGeo.load(context)) }
 
-    val cLon by animateFloatAsState(selected.lon.toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lon")
-    val cLat by animateFloatAsState(selected.lat.toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lat")
+    val cLon by animateFloatAsState((selected?.lon ?: 10.0).toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lon")
+    val cLat by animateFloatAsState((selected?.lat ?: 25.0).toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lat")
 
     // Read only inside the marker canvas so the pulse doesn't redraw the whole map.
     val pulse = rememberInfiniteTransition(label = "pulse")
@@ -130,7 +130,7 @@ fun WorldMap(
             drawLand(paths, proj)
 
             others.forEach { r ->
-                if (r.id != selected.id) {
+                if (r.id != selected?.id) {
                     drawCircle(Nova.Gray.copy(alpha = 0.7f), 3.dp.toPx(), Offset(proj.x(r.lon), proj.y(r.lat)))
                 }
             }
@@ -144,6 +144,7 @@ fun WorldMap(
             )
         }
 
+        if (selected != null) {
         // Marker layer (animates every frame)
         Canvas(Modifier.fillMaxSize()) {
             val m = Offset(proj.x(selected.lon), proj.y(selected.lat))
@@ -193,6 +194,7 @@ fun WorldMap(
                 modifier = Modifier.padding(start = 10.dp),
             )
         }
+        } // selected != null
     }
 }
 

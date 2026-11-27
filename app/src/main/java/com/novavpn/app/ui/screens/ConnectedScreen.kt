@@ -163,6 +163,15 @@ fun ConnectedScreen(
                 }
             }
 
+            vpn.warning?.let {
+                Text(
+                    it,
+                    color = Nova.Orange,
+                    fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 6.dp, end = 6.dp),
+                )
+            }
+
             Spacer(Modifier.height(10.dp))
 
             // Speed cards

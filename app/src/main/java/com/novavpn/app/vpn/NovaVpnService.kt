@@ -29,6 +29,11 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.UnknownHostException
 
 class NovaVpnService : VpnService() {
 
@@ -68,7 +73,14 @@ class NovaVpnService : VpnService() {
             teardownCore()
 
             val server = ServerLink.parse(link)
-            val config = XrayConfigBuilder.build(server)
+            if (server.host.endsWith("example.com") || "REPLACE" in link) {
+                error("This is a placeholder server. Add your real server with the + button in Regions.")
+            }
+            preflight(server)
+
+            val logFile = XrayCore.logFile(applicationContext)
+            runCatching { logFile.delete() }
+            val config = XrayConfigBuilder.build(server, logFile.absolutePath)
 
             val builder = Builder()
                 .setSession(label)
@@ -95,14 +107,53 @@ class NovaVpnService : VpnService() {
             }
             notifyUpdate(notification("Connected", label))
             startSpeedMonitor()
+            verifyTunnel(id)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            val reason = e.message ?: "Connection failed"
+            val detail = XrayCore.logTail(applicationContext)
             teardownCore()
-            VpnController.update { VpnState(error = e.message ?: "Connection failed") }
+            VpnController.update {
+                VpnState(error = if (detail != null && detail !in reason) "$reason\n$detail" else reason)
+            }
             VpnController.setSpeed(Speed())
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+        }
+    }
+
+    /** Fails fast, with a readable reason, when the server can't even be resolved or reached. */
+    private fun preflight(s: ServerLink) {
+        if (s.isUdpOnly) return
+        val addr = try {
+            InetAddress.getByName(s.host)
+        } catch (e: UnknownHostException) {
+            error("Can't resolve ${s.host}. Check the address and your internet connection.")
+        }
+        try {
+            Socket().use { it.connect(InetSocketAddress(addr, s.port), 6000) }
+        } catch (e: IOException) {
+            error("Can't reach ${s.host}:${s.port} (${e.message ?: "timed out"}). The server may be down or blocked.")
+        }
+    }
+
+    /**
+     * The tunnel being up doesn't mean the server works (wrong UUID, Reality keys, SNI ...).
+     * Push one real request through it and warn on the Connected screen if it fails.
+     */
+    private fun verifyTunnel(id: String?) {
+        scope.launch {
+            delay(800)
+            val ms = XrayCore.measureDelay("https://www.gstatic.com/generate_204") ?: return@launch
+            if (ms < 0) {
+                val detail = XrayCore.logTail(applicationContext)
+                VpnController.update {
+                    if (it.status == VpnStatus.Connected && it.regionId == id) {
+                        it.copy(warning = "Server isn't responding – check the link settings." + (detail?.let { d -> "\n$d" } ?: ""))
+                    } else it
+                }
+            }
         }
     }
 

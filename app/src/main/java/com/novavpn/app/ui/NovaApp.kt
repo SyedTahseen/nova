@@ -46,9 +46,10 @@ fun NovaApp(
 
     var showRegions by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var openAddOnShow by rememberSaveable { mutableStateOf(false) }
     // Registered first so the Regions handler below wins when Regions is open on top of Settings.
     BackHandler(enabled = showSettings) { showSettings = false }
-    BackHandler(enabled = showRegions) { showRegions = false }
+    BackHandler(enabled = showRegions) { showRegions = false; openAddOnShow = false }
 
     val selected = vm.region(selectedId)
     val inSession = vpn.status != VpnStatus.Disconnected
@@ -70,9 +71,10 @@ fun NovaApp(
                     onSelect = { vm.select(it.id); VpnController.clearError() },
                     onOpenRegions = { showRegions = true },
                     onOpenSettings = { showSettings = true },
+                    onAddServer = { openAddOnShow = true; showRegions = true },
                     onConnect = {
                         VpnController.clearError()
-                        onConnect(selected)
+                        selected?.let(onConnect)
                     },
                 )
             }
@@ -106,12 +108,11 @@ fun NovaApp(
                 onSelect = { r ->
                     vm.select(r.id)
                     showRegions = false
+                    openAddOnShow = false
                     // Switch servers on the fly if a tunnel is already up.
                     if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) onConnect(r)
                 },
-                onMoreRegions = {
-                    Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
-                },
+                startWithAdd = openAddOnShow,
                 onAddServer = vm::addServer,
                 onDeleteServer = vm::deleteServer,
                 onDeleteAllCustom = vm::deleteAllCustom,

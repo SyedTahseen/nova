@@ -5,6 +5,8 @@ import android.util.Log
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
+import java.io.File
+import java.lang.reflect.InvocationTargetException
 
 /**
  * Thin wrapper around the gomobile-generated Xray bindings (AndroidLibXrayLite, `libv2ray.aar`).
@@ -46,6 +48,34 @@ object XrayCore {
         val c = Libv2ray.newCoreController(handler)
         c.startLoop(configJson, tunFd)
         controller = c
+    }
+
+    /** Xray's error log; recreated on every connect. */
+    fun logFile(context: Context): File = File(context.filesDir, "xray.log")
+
+    /** Last few lines of Xray's error log, for showing the real reason a connection failed. */
+    fun logTail(context: Context, lines: Int = 3): String? = runCatching {
+        logFile(context).readLines().filter { it.isNotBlank() }.takeLast(lines)
+            .joinToString("\n") { it.substringAfter("] ").take(200) }
+            .takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    /**
+     * Real round-trip through the running tunnel (HTTP GET of [url]) in ms.
+     * Returns -1 if it failed, or null when this libv2ray build has no measureDelay (unknown).
+     */
+    fun measureDelay(url: String): Long? {
+        val c = synchronized(this) { controller } ?: return null
+        val m = runCatching { c.javaClass.getMethod("measureDelay", String::class.java) }.getOrNull()
+            ?: return null
+        return try {
+            (m.invoke(c, url) as Number).toLong()
+        } catch (e: InvocationTargetException) {
+            Log.w(TAG, "measureDelay failed: ${e.targetException?.message}")
+            -1L
+        } catch (e: Throwable) {
+            null
+        }
     }
 
     @Synchronized

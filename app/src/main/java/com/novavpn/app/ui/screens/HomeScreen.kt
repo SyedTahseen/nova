@@ -46,11 +46,12 @@ import com.novavpn.app.ui.theme.Nova
 @Composable
 fun HomeScreen(
     regions: List<Region>,
-    selected: Region,
+    selected: Region?,
     error: String?,
     onSelect: (Region) -> Unit,
     onOpenRegions: () -> Unit,
     onOpenSettings: () -> Unit,
+    onAddServer: () -> Unit,
     onConnect: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
@@ -84,9 +85,12 @@ fun HomeScreen(
                 )
             }
 
+            if (selected == null) {
+                AddServerCard(onClick = onAddServer, modifier = Modifier.padding(horizontal = 16.dp))
+            } else {
             val listState = rememberLazyListState()
-            val index = regions.indexOfFirst { it.id == selected.id }.coerceAtLeast(0)
-            LaunchedEffect(selected.id) { listState.animateScrollToItem(index) }
+            val index = regions.indexOfFirst { it.id == selected?.id }.coerceAtLeast(0)
+            LaunchedEffect(selected?.id) { listState.animateScrollToItem(index) }
 
             LazyRow(
                 state = listState,
@@ -96,9 +100,9 @@ fun HomeScreen(
                 items(regions, key = { it.id }) { region ->
                     RegionChip(
                         region = region,
-                        selected = region.id == selected.id,
+                        selected = region.id == selected?.id,
                         onClick = {
-                            if (region.id == selected.id) onOpenRegions() else onSelect(region)
+                            if (region.id == selected?.id) onOpenRegions() else onSelect(region)
                         },
                     )
                 }
@@ -113,6 +117,7 @@ fun HomeScreen(
                 onComplete = onConnect,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
+            }
         }
     }
 }
@@ -166,6 +171,37 @@ fun FlagBadge(code: String, size: Int, modifier: Modifier = Modifier) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+/** Shown instead of the connect slider while there are no servers. */
+@Composable
+private fun AddServerCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .chipSurface(shape, fillAlpha = PILL_OVERLAY_ALPHA)
+            .padding(20.dp),
+    ) {
+        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location come from the proxy name, e.g. Germany.",
+            color = Nova.TextMuted,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Nova.Lime)
+                .clickable(role = Role.Button, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

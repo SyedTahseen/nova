@@ -79,11 +79,11 @@ import com.novavpn.app.ui.theme.Nova
 @Composable
 fun RegionsScreen(
     regions: List<Region>,
-    selectedId: String,
+    selectedId: String?,
     pings: Map<String, Int?>,
     sort: SortMode,
     onSelect: (Region) -> Unit,
-    onMoreRegions: () -> Unit,
+    startWithAdd: Boolean = false,
     onAddServer: (link: String, name: String) -> String?,
     onDeleteServer: (String) -> Unit,
     onDeleteAllCustom: () -> Unit,
@@ -95,7 +95,7 @@ fun RegionsScreen(
 
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    var showAdd by rememberSaveable { mutableStateOf(false) }
+    var showAdd by rememberSaveable { mutableStateOf(startWithAdd) }
     var confirmDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     // Closes the search field first; a second Back closes the screen (handled in NovaApp).
@@ -113,9 +113,7 @@ fun RegionsScreen(
         SortMode.Ping -> list.sortedBy { pings[it.id] ?: Int.MAX_VALUE }
     }
 
-    val mine = sorted(filtered.filter { it.custom })
-    val free = sorted(filtered.filter { !it.custom && !it.premium })
-    val premium = sorted(filtered.filter { !it.custom && it.premium })
+    val shown = sorted(filtered)
     val customCount = regions.count { it.custom }
 
     fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -159,12 +157,9 @@ fun RegionsScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (!searching && q.isEmpty()) {
-                item { Banner(regions, onMoreRegions) }
-                item { Spacer(Modifier.height(4.dp)) }
-            }
-
-            if (filtered.isEmpty()) {
+            if (regions.isEmpty()) {
+                item { EmptyState(onAdd = { showAdd = true }) }
+            } else if (filtered.isEmpty()) {
                 item {
                     Text(
                         "No servers match \"${query.trim()}\"",
@@ -175,30 +170,13 @@ fun RegionsScreen(
                 }
             }
 
-            if (mine.isNotEmpty()) {
-                item { SectionTitle("My servers") }
-                items(mine, key = { it.id }) { r ->
-                    RegionRow(
-                        r, r.id == selectedId, pings[r.id],
-                        onClick = { onSelect(r) },
-                        onCopy = { clipboard.setText(AnnotatedString(r.link)); toast("Link copied") },
-                        onDelete = { onDeleteServer(r.id); toast("Server removed") },
-                    )
-                }
-            }
-
-            if (free.isNotEmpty()) {
-                if (mine.isNotEmpty()) item { SectionTitle("Free regions") }
-                items(free, key = { it.id }) { r ->
-                    RegionRow(r, r.id == selectedId, pings[r.id], onClick = { onSelect(r) })
-                }
-            }
-
-            if (premium.isNotEmpty()) {
-                item { SectionTitle("Premium regions") }
-                items(premium, key = { it.id }) { r ->
-                    RegionRow(r, r.id == selectedId, pings[r.id], onClick = { onSelect(r) })
-                }
+            items(shown, key = { it.id }) { r ->
+                RegionRow(
+                    r, r.id == selectedId, pings[r.id],
+                    onClick = { onSelect(r) },
+                    onCopy = { clipboard.setText(AnnotatedString(r.link)); toast("Link copied") },
+                    onDelete = if (r.custom) ({ onDeleteServer(r.id); toast("Server removed") }) else null,
+                )
             }
 
             item { Spacer(Modifier.navigationBarsPadding()) }
@@ -241,14 +219,28 @@ fun RegionsScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text,
-        color = Nova.White,
-        fontSize = 19.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 14.dp, bottom = 4.dp, start = 4.dp),
-    )
+private fun EmptyState(onAdd: () -> Unit) {
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        Modifier.fillMaxWidth().padding(top = 24.dp).chipSurface(shape).padding(20.dp),
+    ) {
+        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
+            color = Nova.TextMuted,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Nova.Lime)
+                .clickable(role = Role.Button, onClick = onAdd),
+            contentAlignment = Alignment.Center,
+        ) { Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+    }
 }
 
 /** Title + search / add / overflow pills. The search pill expands into a text field. */
@@ -380,11 +372,11 @@ private fun AddServerDialog(
         title = { Text("Add server", color = Nova.White) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Paste a vless:// or trojan:// link.", color = Nova.TextMuted, fontSize = 14.sp)
+                Text("Paste a share link: vless, vmess, trojan, ss, socks or wireguard.", color = Nova.TextMuted, fontSize = 14.sp)
                 DialogField(
                     value = link,
                     onChange = { link = it; error = null },
-                    placeholder = "vless://… or trojan://…",
+                    placeholder = "vless://, vmess://, trojan://, ss://…",
                     singleLine = false,
                     keyboardType = KeyboardType.Uri,
                 )
@@ -441,83 +433,6 @@ private fun DialogField(
     }
 }
 
-@Composable
-private fun Banner(regions: List<Region>, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(26.dp)
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(213.dp)
-            .clip(shape)
-            .background(
-                Brush.horizontalGradient(
-                    0f to Color(0xFF0C0C0D),
-                    1f to Color(0xFF1A1F00),
-                ),
-            )
-            .clickable(onClick = onClick),
-    ) {
-        // Orb peeking in from the right edge
-        OrbView(
-            Modifier
-                .requiredSize(338.dp) // sphere radius ≈ 128dp, centred on the card's right edge
-                .align(Alignment.CenterEnd)
-                .offset(x = 166.dp, y = (-4).dp),
-        )
-
-        Text(
-            "Need more\nregions?",
-            color = Nova.White,
-            fontSize = 29.sp,
-            lineHeight = 32.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 13.dp, top = 12.dp),
-        )
-
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .size(65.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Nova.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            ChevronIcon(Nova.Black, Modifier.size(22.dp))
-        }
-
-        Row(
-            Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val flags = regions.take(2).map { it.code }
-            Box(Modifier.width(72.dp).height(28.dp)) {
-                flags.forEachIndexed { i, code ->
-                    FlagBadge(
-                        code, 28,
-                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
-                    )
-                }
-                Box(
-                    Modifier
-                        .offset(x = (flags.size * 22).dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Nova.White)
-                        .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) { Text("+", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-            }
-            Text(
-                "Europe, USA, Canada",
-                color = Nova.TextMuted,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(start = 20.dp),
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RegionRow(
@@ -545,9 +460,10 @@ private fun RegionRow(
                     onLongClick = if (hasMenu) ({ menuOpen = true }) else null,
                     onLongClickLabel = if (hasMenu) "Server options" else null,
                 )
-                .padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            FlagBadge(region.code, 30, Modifier.padding(end = 12.dp))
             Text(
                 region.label,
                 color = if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f),

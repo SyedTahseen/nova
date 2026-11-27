@@ -18,6 +18,8 @@ data class VpnState(
     /** Wall-clock time (ms) at which the tunnel came up; 0 while not connected. */
     val connectedAtMs: Long = 0L,
     val error: String? = null,
+    /** Non-fatal problem while connected, e.g. the server isn't answering. */
+    val warning: String? = null,
 )
 
 data class Speed(val downMbps: Float = 0f, val upMbps: Float = 0f)

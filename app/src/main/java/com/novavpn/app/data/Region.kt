@@ -13,7 +13,13 @@ data class Region(
     /** True for servers the user added themselves (stored on device, can be deleted). */
     val custom: Boolean = false,
 ) {
-    val label: String get() = "$city, $country"
+    /** "Germany" for a proxy named Germany; "Frankfurt 01, Germany" when the name adds detail. */
+    val label: String
+        get() = when {
+            country.isBlank() -> city
+            city.contains(country, ignoreCase = true) -> city
+            else -> "$city, $country"
+        }
     val flag: String get() = flagEmoji(code)
 }
 
