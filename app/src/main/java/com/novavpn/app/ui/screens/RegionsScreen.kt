@@ -415,6 +415,8 @@ private fun RegionsHeader(
 ) {
     val pill = RoundedCornerShape(24.dp)
     var moreOpen by remember { mutableStateOf(false) }
+    // Which page of the three-dot menu is showing: "root", "sort", "group" or "delete".
+    var page by remember { mutableStateOf("root") }
     var addOpen by remember { mutableStateOf(openAddMenuInitially) }
 
     Row(
@@ -483,48 +485,78 @@ private fun RegionsHeader(
         }
 
         Box {
-            HeaderPill(onClick = { moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
+            HeaderPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             DropdownMenu(
                 expanded = moreOpen,
-                onDismissRequest = { moreOpen = false },
+                onDismissRequest = { moreOpen = false; page = "root" },
                 containerColor = Nova.CardRaised,
             ) {
-                fun close(block: () -> Unit): () -> Unit = { moreOpen = false; block() }
+                fun close(block: () -> Unit): () -> Unit = { moreOpen = false; page = "root"; block() }
 
-                MenuLabel("Test")
-                MenuItem("Test all servers", onClick = close(menu.onTestAll))
-                if (menu.hasSubs) MenuItem("Update subscriptions", onClick = close(menu.onUpdateSubs))
+                when (page) {
+                    "sort" -> {
+                        BackItem("Sort") { page = "root" }
+                        MenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
+                        MenuItem("Fastest first", checked = menu.sort == SortMode.Ping, onClick = close { menu.onSort(SortMode.Ping) })
+                        MenuItem("Name A–Z", checked = menu.sort == SortMode.Name, onClick = close { menu.onSort(SortMode.Name) })
+                    }
 
-                MenuLabel("Sort")
-                MenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
-                MenuItem("Fastest first", checked = menu.sort == SortMode.Ping, onClick = close { menu.onSort(SortMode.Ping) })
-                MenuItem("Name A–Z", checked = menu.sort == SortMode.Name, onClick = close { menu.onSort(SortMode.Name) })
+                    "group" -> {
+                        BackItem("Group by") { page = "root" }
+                        MenuItem("Source", checked = menu.groupMode == GroupMode.Source, onClick = close { menu.onGroup(GroupMode.Source) })
+                        MenuItem("Country", checked = menu.groupMode == GroupMode.Country, onClick = close { menu.onGroup(GroupMode.Country) })
+                        MenuItem("Protocol", checked = menu.groupMode == GroupMode.Protocol, onClick = close { menu.onGroup(GroupMode.Protocol) })
+                        MenuItem("No grouping", checked = menu.groupMode == GroupMode.None, onClick = close { menu.onGroup(GroupMode.None) })
+                    }
 
-                MenuLabel("Group by")
-                MenuItem("Source", checked = menu.groupMode == GroupMode.Source, onClick = close { menu.onGroup(GroupMode.Source) })
-                MenuItem("Country", checked = menu.groupMode == GroupMode.Country, onClick = close { menu.onGroup(GroupMode.Country) })
-                MenuItem("Protocol", checked = menu.groupMode == GroupMode.Protocol, onClick = close { menu.onGroup(GroupMode.Protocol) })
-                MenuItem("No grouping", checked = menu.groupMode == GroupMode.None, onClick = close { menu.onGroup(GroupMode.None) })
+                    "delete" -> {
+                        BackItem("Delete") { page = "root" }
+                        if (menu.unreachable > 0) {
+                            MenuItem("Unreachable (${menu.unreachable})", color = Nova.Red, onClick = close(menu.onDeleteUnreachable))
+                        }
+                        if (menu.duplicates > 0) {
+                            MenuItem("Duplicates (${menu.duplicates})", color = Nova.Red, onClick = close(menu.onDeleteDuplicates))
+                        }
+                        if (menu.manual > 0) {
+                            MenuItem("Manual servers (${menu.manual})", color = Nova.Red, onClick = close(menu.onDeleteManual))
+                        }
+                        if (menu.subscriptions > 0) {
+                            MenuItem("Subscriptions (${menu.subscriptions})", color = Nova.Red, onClick = close(menu.onDeleteSubs))
+                        }
+                        MenuItem("All my servers", color = Nova.Red, onClick = close(menu.onDeleteAll))
+                    }
 
-                if (menu.custom > 0) {
-                    MenuLabel("Delete")
-                    if (menu.unreachable > 0) {
-                        MenuItem("Unreachable (${menu.unreachable})", color = Nova.Red, onClick = close(menu.onDeleteUnreachable))
+                    else -> {
+                        MenuItem("Test all servers", onClick = close(menu.onTestAll))
+                        if (menu.hasSubs) MenuItem("Update subscriptions", onClick = close(menu.onUpdateSubs))
+                        SubMenuItem("Sort") { page = "sort" }
+                        SubMenuItem("Group by") { page = "group" }
+                        if (menu.custom > 0) SubMenuItem("Delete", color = Nova.Red) { page = "delete" }
                     }
-                    if (menu.duplicates > 0) {
-                        MenuItem("Duplicates (${menu.duplicates})", color = Nova.Red, onClick = close(menu.onDeleteDuplicates))
-                    }
-                    if (menu.manual > 0) {
-                        MenuItem("Manual servers (${menu.manual})", color = Nova.Red, onClick = close(menu.onDeleteManual))
-                    }
-                    if (menu.subscriptions > 0) {
-                        MenuItem("Subscriptions (${menu.subscriptions})", color = Nova.Red, onClick = close(menu.onDeleteSubs))
-                    }
-                    MenuItem("All my servers", color = Nova.Red, onClick = close(menu.onDeleteAll))
                 }
             }
         }
     }
+}
+
+/** Menu row that opens a sub page; shows a chevron on the right. */
+@Composable
+private fun SubMenuItem(text: String, color: Color = Nova.White, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text, color = color, fontSize = 15.sp) },
+        trailingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp)) },
+        onClick = onClick,
+    )
+}
+
+/** First row of a sub page: tap to go back to the main menu. */
+@Composable
+private fun BackItem(title: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(title, color = Nova.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) },
+        leadingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp), left = true) },
+        onClick = onClick,
+    )
 }
 
 @Composable
