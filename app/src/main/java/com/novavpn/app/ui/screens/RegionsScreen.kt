@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,11 +27,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,7 +65,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.novavpn.app.GroupMode
+import com.novavpn.app.MainViewModel
 import com.novavpn.app.SortMode
+import com.novavpn.app.core.ManualServer
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.CheckIcon
 import com.novavpn.app.ui.components.ChevronIcon
@@ -73,50 +80,135 @@ import com.novavpn.app.ui.components.PlusIcon
 import com.novavpn.app.ui.components.SearchIcon
 import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.chipSurface
+import com.novavpn.app.ui.scanQrCode
 import com.novavpn.app.ui.theme.Nova
+
+private data class Confirm(val title: String, val message: String, val action: String, val run: () -> Unit)
+
+private data class Section(val title: String?, val items: List<Region>)
+
+private const val UNKNOWN_COUNTRY = "Unknown location"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RegionsScreen(
-    regions: List<Region>,
-    selectedId: String?,
-    pings: Map<String, Int?>,
-    sort: SortMode,
+    vm: MainViewModel,
     onSelect: (Region) -> Unit,
+    onMoreRegions: () -> Unit,
     startWithAdd: Boolean = false,
-    onAddServer: (link: String, name: String) -> String?,
-    onDeleteServer: (String) -> Unit,
-    onDeleteAllCustom: () -> Unit,
-    onTestAll: () -> Unit,
-    onSortChange: (SortMode) -> Unit,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
 
+    val regions by vm.regions.collectAsStateWithLifecycle()
+    val selectedId by vm.selectedId.collectAsStateWithLifecycle()
+    val pings by vm.pings.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
+    val groupMode by vm.groupMode.collectAsStateWithLifecycle()
+    val subs by vm.subscriptions.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    var showAdd by rememberSaveable { mutableStateOf(startWithAdd) }
-    var confirmDeleteAll by rememberSaveable { mutableStateOf(false) }
+    var showSub by rememberSaveable { mutableStateOf(false) }
+    var subUrl by rememberSaveable { mutableStateOf("") }
+    var subError by remember { mutableStateOf<String?>(null) }
+    var showManual by rememberSaveable { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf<Confirm?>(null) }
 
     // Closes the search field first; a second Back closes the screen (handled in NovaApp).
     BackHandler(enabled = searching) { searching = false; query = "" }
 
+    fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+    fun handleImport(text: String) {
+        val r = vm.importText(text)
+        when {
+            r.subscriptionUrl != null -> { subUrl = r.subscriptionUrl; subError = null; showSub = true }
+            r.added > 0 -> toast("Added ${r.added} server${if (r.added > 1) "s" else ""}")
+            r.duplicates > 0 -> toast("Already in your list")
+            else -> toast(r.error ?: "Nothing to import")
+        }
+    }
+
     val q = query.trim().lowercase()
     val filtered = if (q.isEmpty()) regions else regions.filter {
-        it.label.lowercase().contains(q) || it.code.lowercase() == q || it.id.lowercase().contains(q)
+        it.label.lowercase().contains(q) || it.code.lowercase() == q ||
+            it.id.lowercase().contains(q) || it.group.lowercase().contains(q) ||
+            it.protocolName.lowercase().contains(q)
     }
 
-    fun sorted(list: List<Region>): List<Region> = when (sort) {
-        SortMode.Default -> list
-        SortMode.Name -> list.sortedBy { it.label.lowercase() }
-        // Unreachable / not-yet-tested servers go last.
-        SortMode.Ping -> list.sortedBy { pings[it.id] ?: Int.MAX_VALUE }
+    val sections = remember(filtered, groupMode, sort, pings, subs) {
+        buildSections(filtered, groupMode, sort, pings, subs.map { it.id })
     }
 
-    val shown = sorted(filtered)
+    val unreachable = remember(regions, pings) { vm.unreachableIds() }
+    val duplicates = remember(regions) { vm.duplicateIds() }
+    val manualCount = regions.count { it.custom && it.subId == null }
+    val subServerCount = regions.count { it.subId != null }
     val customCount = regions.count { it.custom }
 
-    fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+    @Composable
+    fun ServerRow(r: Region) {
+        RegionRow(
+            r, r.id == selectedId, pings[r.id],
+            onClick = { onSelect(r) },
+            onCopy = { clipboard.setText(AnnotatedString(r.link)); toast("Link copied") },
+            onDelete = if (r.custom) ({ vm.deleteServer(r.id); toast("Server removed") }) else null,
+        )
+    }
+
+    fun plural(n: Int, word: String) = "$n $word${if (n == 1) "" else "s"}"
+
+    val menu = MoreMenu(
+        sort = sort,
+        groupMode = groupMode,
+        hasSubs = subs.isNotEmpty(),
+        unreachable = unreachable.size,
+        duplicates = duplicates.size,
+        manual = manualCount,
+        subscriptions = subs.size,
+        custom = customCount,
+        onTestAll = { vm.refreshPings(); toast("Testing all servers…") },
+        onUpdateSubs = { toast("Updating subscriptions…"); vm.refreshSubscriptions { toast(it) } },
+        onSort = vm::setSort,
+        onGroup = vm::setGroupMode,
+        onDeleteUnreachable = {
+            confirm = Confirm(
+                "Delete unreachable servers?",
+                "${plural(unreachable.size, "server")} that failed the last test will be removed.",
+                "Delete",
+            ) { vm.deleteIds(unreachable) }
+        },
+        onDeleteDuplicates = {
+            confirm = Confirm(
+                "Delete duplicates?",
+                "${plural(duplicates.size, "extra copy")} of servers with the same address and credentials will be removed.",
+                "Delete",
+            ) { vm.deleteIds(duplicates) }
+        },
+        onDeleteManual = {
+            confirm = Confirm(
+                "Delete manual servers?",
+                "This removes the ${plural(manualCount, "server")} you added by hand. Subscriptions are not affected.",
+                "Delete",
+            ) { vm.deleteManual() }
+        },
+        onDeleteSubs = {
+            confirm = Confirm(
+                "Delete subscriptions?",
+                "This removes ${plural(subs.size, "subscription")} and their ${plural(subServerCount, "server")}.",
+                "Delete",
+            ) { vm.deleteSubscriptions() }
+        },
+        onDeleteAll = {
+            confirm = Confirm(
+                "Delete all servers?",
+                "This removes all ${plural(customCount, "server")} and subscriptions you added.",
+                "Delete all",
+            ) { vm.deleteAllCustom() }
+        },
+    )
 
     Column(
         Modifier
@@ -128,28 +220,15 @@ fun RegionsScreen(
         RegionsHeader(
             searching = searching,
             query = query,
-            sort = sort,
-            hasCustom = customCount > 0,
+            menu = menu,
+            openAddMenuInitially = startWithAdd,
             onQueryChange = { query = it },
             onOpenSearch = { searching = true },
             onCloseSearch = { searching = false; query = "" },
-            onAdd = { showAdd = true },
-            onTestAll = { onTestAll(); toast("Testing all servers…") },
-            onSortChange = onSortChange,
-            onImportClipboard = {
-                val text = clipboard.getText()?.text.orEmpty()
-                if (text.isBlank()) {
-                    toast("Clipboard is empty")
-                } else {
-                    // A clipboard can hold several links, one per line.
-                    val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                    var added = 0
-                    var lastError: String? = null
-                    lines.forEach { line -> onAddServer(line, "")?.let { lastError = it } ?: run { added++ } }
-                    toast(if (added > 0) "Added $added server${if (added > 1) "s" else ""}" else lastError ?: "Nothing to import")
-                }
-            },
-            onDeleteAll = { confirmDeleteAll = true },
+            onSubscription = { subUrl = ""; subError = null; showSub = true },
+            onClipboard = { handleImport(clipboard.getText()?.text.orEmpty()) },
+            onQr = { scanQrCode(context, onResult = ::handleImport, onError = ::toast) },
+            onManual = { showManual = true },
         )
 
         LazyColumn(
@@ -157,8 +236,13 @@ fun RegionsScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            if (!searching && q.isEmpty()) {
+                item { Banner(regions, onMoreRegions) }
+                item { Spacer(Modifier.height(4.dp)) }
+            }
+
             if (regions.isEmpty()) {
-                item { EmptyState(onAdd = { showAdd = true }) }
+                item { EmptyState(onAdd = { showManual = true }) }
             } else if (filtered.isEmpty()) {
                 item {
                     Text(
@@ -170,97 +254,168 @@ fun RegionsScreen(
                 }
             }
 
-            items(shown, key = { it.id }) { r ->
-                RegionRow(
-                    r, r.id == selectedId, pings[r.id],
-                    onClick = { onSelect(r) },
-                    onCopy = { clipboard.setText(AnnotatedString(r.link)); toast("Link copied") },
-                    onDelete = if (r.custom) ({ onDeleteServer(r.id); toast("Server removed") }) else null,
-                )
+            sections.forEach { section ->
+                if (section.title != null) {
+                    item(key = "header-${section.title}") { GroupHeader(section.title, section.items.size) }
+                }
+                items(section.items, key = { it.id }) { r -> ServerRow(r) }
             }
 
             item { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
 
-    if (showAdd) {
-        AddServerDialog(
-            onDismiss = { showAdd = false },
-            onPaste = { clipboard.getText()?.text.orEmpty() },
-            onAdd = { link, name ->
-                val err = onAddServer(link, name)
-                if (err == null) { showAdd = false; toast("Server added") }
+    if (showSub) {
+        SubscriptionDialog(
+            url = subUrl,
+            busy = busy,
+            error = subError,
+            onUrlChange = { subUrl = it; subError = null },
+            onPaste = { clipboard.getText()?.text.orEmpty().trim() },
+            onSubmit = { name, url ->
+                subError = null
+                vm.addSubscription(name, url) { err ->
+                    if (err == null) { showSub = false; toast("Subscription added") } else subError = err
+                }
+            },
+            onDismiss = { if (!busy) showSub = false },
+        )
+    }
+
+    if (showManual) {
+        ManualDialog(
+            onDismiss = { showManual = false },
+            onPaste = { clipboard.getText()?.text.orEmpty().trim() },
+            onAddLink = { link, name ->
+                val err = vm.addServer(link, name)
+                if (err == null) { showManual = false; toast("Server added") }
                 err
             },
         )
     }
 
-    if (confirmDeleteAll) {
+    confirm?.let { c ->
         AlertDialog(
-            onDismissRequest = { confirmDeleteAll = false },
+            onDismissRequest = { confirm = null },
             containerColor = Nova.CardRaised,
-            title = { Text("Delete my servers?", color = Nova.White) },
-            text = {
-                Text(
-                    "This removes the $customCount server${if (customCount > 1) "s" else ""} you added. Built-in regions are not affected.",
-                    color = Nova.TextMuted,
-                )
-            },
+            title = { Text(c.title, color = Nova.White) },
+            text = { Text(c.message, color = Nova.TextMuted) },
             confirmButton = {
-                TextButton(onClick = { onDeleteAllCustom(); confirmDeleteAll = false }) {
-                    Text("Delete", color = Nova.Red)
-                }
+                TextButton(onClick = { c.run(); confirm = null }) { Text(c.action, color = Nova.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDeleteAll = false }) { Text("Cancel", color = Nova.White) }
+                TextButton(onClick = { confirm = null }) { Text("Cancel", color = Nova.White) }
             },
         )
     }
 }
 
+/** Splits [list] into sections for the chosen grouping, sorting inside each section. */
+private fun buildSections(
+    list: List<Region>,
+    mode: GroupMode,
+    sort: SortMode,
+    pings: Map<String, Int?>,
+    subOrder: List<String>,
+): List<Section> {
+    fun sorted(l: List<Region>): List<Region> = when (sort) {
+        SortMode.Default -> l
+        SortMode.Name -> l.sortedBy { it.label.lowercase() }
+        // Untested / unreachable servers go last.
+        SortMode.Ping -> l.sortedBy { pings[it.id] ?: Int.MAX_VALUE }
+    }
+
+    if (list.isEmpty()) return emptyList()
+
+    val sections: List<Section> = when (mode) {
+        GroupMode.None -> listOf(Section(null, sorted(list)))
+
+        GroupMode.Country -> list.groupBy { it.country.ifBlank { UNKNOWN_COUNTRY } }
+            .entries.sortedWith(compareBy({ it.key == UNKNOWN_COUNTRY }, { it.key.lowercase() }))
+            .map { Section(it.key, sorted(it.value)) }
+
+        GroupMode.Protocol -> list.groupBy { it.protocolName }
+            .entries.sortedBy { it.key.lowercase() }
+            .map { Section(it.key, sorted(it.value)) }
+
+        GroupMode.Source -> {
+            fun title(r: Region) = when {
+                r.subId != null -> r.group
+                r.custom -> r.group.ifBlank { "My servers" }
+                r.premium -> "Premium regions"
+                else -> "Free regions"
+            }
+            fun rank(r: Region) = when {
+                r.subId != null -> 1 + subOrder.indexOf(r.subId).coerceAtLeast(0)
+                r.custom -> 0
+                r.premium -> 100_001
+                else -> 100_000
+            }
+            list.groupBy { title(it) }
+                .entries.sortedBy { e -> rank(e.value.first()) }
+                .map { Section(it.key, sorted(it.value)) }
+        }
+    }
+    // A lone section doesn't need a heading.
+    return if (sections.size == 1) listOf(sections[0].copy(title = null)) else sections
+}
+
 @Composable
-private fun EmptyState(onAdd: () -> Unit) {
-    val shape = RoundedCornerShape(28.dp)
-    Column(
-        Modifier.fillMaxWidth().padding(top = 24.dp).chipSurface(shape).padding(20.dp),
+private fun GroupHeader(title: String, count: Int) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
-            color = Nova.TextMuted,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+            title,
+            color = Nova.White,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f, fill = false),
         )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Nova.Lime)
-                .clickable(role = Role.Button, onClick = onAdd),
-            contentAlignment = Alignment.Center,
-        ) { Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+        Text("$count", color = Nova.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
     }
 }
+
+/** Everything the three-dot menu needs. */
+private class MoreMenu(
+    val sort: SortMode,
+    val groupMode: GroupMode,
+    val hasSubs: Boolean,
+    val unreachable: Int,
+    val duplicates: Int,
+    val manual: Int,
+    val subscriptions: Int,
+    val custom: Int,
+    val onTestAll: () -> Unit,
+    val onUpdateSubs: () -> Unit,
+    val onSort: (SortMode) -> Unit,
+    val onGroup: (GroupMode) -> Unit,
+    val onDeleteUnreachable: () -> Unit,
+    val onDeleteDuplicates: () -> Unit,
+    val onDeleteManual: () -> Unit,
+    val onDeleteSubs: () -> Unit,
+    val onDeleteAll: () -> Unit,
+)
 
 /** Title + search / add / overflow pills. The search pill expands into a text field. */
 @Composable
 private fun RegionsHeader(
     searching: Boolean,
     query: String,
-    sort: SortMode,
-    hasCustom: Boolean,
+    menu: MoreMenu,
+    openAddMenuInitially: Boolean,
     onQueryChange: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onCloseSearch: () -> Unit,
-    onAdd: () -> Unit,
-    onTestAll: () -> Unit,
-    onSortChange: (SortMode) -> Unit,
-    onImportClipboard: () -> Unit,
-    onDeleteAll: () -> Unit,
+    onSubscription: () -> Unit,
+    onClipboard: () -> Unit,
+    onQr: () -> Unit,
+    onManual: () -> Unit,
 ) {
     val pill = RoundedCornerShape(24.dp)
-    var menuOpen by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
+    var addOpen by remember { mutableStateOf(openAddMenuInitially) }
 
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
@@ -311,24 +466,281 @@ private fun RegionsHeader(
                 modifier = Modifier.weight(1f).padding(start = 4.dp),
             )
             HeaderPill(onClick = onOpenSearch, label = "Search") { SearchIcon(Nova.White) }
-            HeaderPill(onClick = onAdd, label = "Add server") { PlusIcon(Nova.White) }
+
+            Box {
+                HeaderPill(onClick = { addOpen = true }, label = "Add server") { PlusIcon(Nova.White) }
+                DropdownMenu(
+                    expanded = addOpen,
+                    onDismissRequest = { addOpen = false },
+                    containerColor = Nova.CardRaised,
+                ) {
+                    MenuItem("Subscription URL") { addOpen = false; onSubscription() }
+                    MenuItem("Import from clipboard") { addOpen = false; onClipboard() }
+                    MenuItem("Scan QR code") { addOpen = false; onQr() }
+                    MenuItem("Manual input") { addOpen = false; onManual() }
+                }
+            }
         }
 
         Box {
-            HeaderPill(onClick = { menuOpen = true }, label = "More options") { MoreIcon(Nova.White) }
+            HeaderPill(onClick = { moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
+                expanded = moreOpen,
+                onDismissRequest = { moreOpen = false },
                 containerColor = Nova.CardRaised,
             ) {
-                MenuItem("Test all servers") { menuOpen = false; onTestAll() }
-                MenuItem("Sort: Default", checked = sort == SortMode.Default) { menuOpen = false; onSortChange(SortMode.Default) }
-                MenuItem("Sort: Fastest first", checked = sort == SortMode.Ping) { menuOpen = false; onSortChange(SortMode.Ping) }
-                MenuItem("Sort: Name A–Z", checked = sort == SortMode.Name) { menuOpen = false; onSortChange(SortMode.Name) }
-                MenuItem("Import from clipboard") { menuOpen = false; onImportClipboard() }
-                if (hasCustom) MenuItem("Delete my servers", color = Nova.Red) { menuOpen = false; onDeleteAll() }
+                fun close(block: () -> Unit): () -> Unit = { moreOpen = false; block() }
+
+                MenuLabel("Test")
+                MenuItem("Test all servers", onClick = close(menu.onTestAll))
+                if (menu.hasSubs) MenuItem("Update subscriptions", onClick = close(menu.onUpdateSubs))
+
+                MenuLabel("Sort")
+                MenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
+                MenuItem("Fastest first", checked = menu.sort == SortMode.Ping, onClick = close { menu.onSort(SortMode.Ping) })
+                MenuItem("Name A–Z", checked = menu.sort == SortMode.Name, onClick = close { menu.onSort(SortMode.Name) })
+
+                MenuLabel("Group by")
+                MenuItem("Source", checked = menu.groupMode == GroupMode.Source, onClick = close { menu.onGroup(GroupMode.Source) })
+                MenuItem("Country", checked = menu.groupMode == GroupMode.Country, onClick = close { menu.onGroup(GroupMode.Country) })
+                MenuItem("Protocol", checked = menu.groupMode == GroupMode.Protocol, onClick = close { menu.onGroup(GroupMode.Protocol) })
+                MenuItem("No grouping", checked = menu.groupMode == GroupMode.None, onClick = close { menu.onGroup(GroupMode.None) })
+
+                if (menu.custom > 0) {
+                    MenuLabel("Delete")
+                    if (menu.unreachable > 0) {
+                        MenuItem("Unreachable (${menu.unreachable})", color = Nova.Red, onClick = close(menu.onDeleteUnreachable))
+                    }
+                    if (menu.duplicates > 0) {
+                        MenuItem("Duplicates (${menu.duplicates})", color = Nova.Red, onClick = close(menu.onDeleteDuplicates))
+                    }
+                    if (menu.manual > 0) {
+                        MenuItem("Manual servers (${menu.manual})", color = Nova.Red, onClick = close(menu.onDeleteManual))
+                    }
+                    if (menu.subscriptions > 0) {
+                        MenuItem("Subscriptions (${menu.subscriptions})", color = Nova.Red, onClick = close(menu.onDeleteSubs))
+                    }
+                    MenuItem("All my servers", color = Nova.Red, onClick = close(menu.onDeleteAll))
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuLabel(text: String) {
+    Text(
+        text.uppercase(),
+        color = Nova.TextMuted,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun ChipRow(options: List<String>, selected: String, onSelect: (String) -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { o ->
+            val sel = o == selected
+            Box(
+                Modifier
+                    .height(36.dp)
+                    .chipSurface(RoundedCornerShape(18.dp), sel)
+                    .clickable { onSelect(o) }
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(o, color = if (sel) Nova.Lime else Nova.White, fontSize = 13.sp) }
+        }
+    }
+}
+
+@Composable
+private fun FieldLabel(text: String) {
+    Text(text, color = Nova.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+}
+
+@Composable
+private fun SubscriptionDialog(
+    url: String,
+    busy: Boolean,
+    error: String?,
+    onUrlChange: (String) -> Unit,
+    onPaste: () -> String,
+    onSubmit: (name: String, url: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Nova.CardRaised,
+        title = { Text("Add subscription", color = Nova.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Paste the subscription URL from your provider. Its servers are added as a group and can be updated later.",
+                    color = Nova.TextMuted,
+                    fontSize = 14.sp,
+                )
+                DialogField(url, onUrlChange, "https://…", singleLine = false, keyboardType = KeyboardType.Uri)
+                DialogField(name, { name = it }, "Name (optional)", singleLine = true, keyboardType = KeyboardType.Text)
+                TextButton(onClick = { onUrlChange(onPaste()) }, enabled = !busy) {
+                    Text("Paste from clipboard", color = Nova.Lime)
+                }
+                if (busy) Text("Downloading…", color = Nova.TextMuted, fontSize = 13.sp)
+                error?.let { Text(it, color = Nova.Red, fontSize = 13.sp) }
+            }
+        },
+        confirmButton = {
+            val ok = url.isNotBlank() && !busy
+            TextButton(onClick = { onSubmit(name, url) }, enabled = ok) {
+                Text("Add", color = if (ok) Nova.Lime else Nova.Gray)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel", color = Nova.White) } },
+    )
+}
+
+@Composable
+private fun ManualDialog(
+    onDismiss: () -> Unit,
+    onPaste: () -> String,
+    onAddLink: (link: String, name: String) -> String?,
+) {
+    var tab by rememberSaveable { mutableStateOf("Link") }
+    var link by rememberSaveable { mutableStateOf("") }
+    var linkName by rememberSaveable { mutableStateOf("") }
+    var f by remember { mutableStateOf(ManualServer()) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val protocols = listOf("VLESS", "VMess", "Trojan", "Shadowsocks", "SOCKS")
+    val transportProtocol = f.protocol == "VLESS" || f.protocol == "VMess" || f.protocol == "Trojan"
+    val securities = if (f.protocol == "VMess") listOf("none", "tls") else listOf("none", "tls", "reality")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Nova.CardRaised,
+        title = { Text("Manual input", color = Nova.White) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ChipRow(listOf("Link", "Fields"), tab) { tab = it; error = null }
+
+                if (tab == "Link") {
+                    Text(
+                        "Paste a vless, vmess, trojan, ss, socks or wireguard link.",
+                        color = Nova.TextMuted,
+                        fontSize = 14.sp,
+                    )
+                    DialogField(link, { link = it; error = null }, "vless://, vmess://, trojan://, ss://…", false, KeyboardType.Uri)
+                    DialogField(linkName, { linkName = it }, "Name (optional)", true, KeyboardType.Text)
+                    TextButton(onClick = { link = onPaste(); error = null }) {
+                        Text("Paste from clipboard", color = Nova.Lime)
+                    }
+                } else {
+                    ChipRow(protocols, f.protocol) { p ->
+                        f = f.copy(
+                            protocol = p,
+                            network = "tcp",
+                            security = if (p == "Trojan") "tls" else "none",
+                            port = if (p == "SOCKS") "1080" else if (p == "Shadowsocks") "8388" else "443",
+                        )
+                        error = null
+                    }
+                    DialogField(f.name, { f = f.copy(name = it) }, "Name, e.g. Germany", true, KeyboardType.Text)
+                    DialogField(f.host, { f = f.copy(host = it); error = null }, "Address", true, KeyboardType.Uri)
+                    DialogField(f.port, { f = f.copy(port = it); error = null }, "Port", true, KeyboardType.Number)
+
+                    val secretHint = when (f.protocol) {
+                        "VLESS", "VMess" -> "User ID (UUID)"
+                        else -> "Password"
+                    }
+                    DialogField(f.secret, { f = f.copy(secret = it); error = null }, secretHint, true, KeyboardType.Text)
+
+                    when {
+                        f.protocol == "Shadowsocks" -> {
+                            FieldLabel("Cipher")
+                            ChipRow(
+                                listOf("aes-256-gcm", "aes-128-gcm", "chacha20-ietf-poly1305"),
+                                f.cipher,
+                            ) { f = f.copy(cipher = it) }
+                        }
+
+                        f.protocol == "SOCKS" -> {
+                            DialogField(f.username, { f = f.copy(username = it) }, "Username (optional)", true, KeyboardType.Text)
+                        }
+
+                        transportProtocol -> {
+                            FieldLabel("Transport")
+                            ChipRow(listOf("tcp", "ws", "grpc", "xhttp"), f.network) { f = f.copy(network = it) }
+                            FieldLabel("Security")
+                            ChipRow(securities, f.security) { f = f.copy(security = it); error = null }
+                            if (f.security != "none") {
+                                DialogField(f.sni, { f = f.copy(sni = it) }, "SNI / host", true, KeyboardType.Uri)
+                            }
+                            if (f.network != "tcp") {
+                                DialogField(
+                                    f.path,
+                                    { f = f.copy(path = it) },
+                                    if (f.network == "grpc") "Service name" else "Path, e.g. /ws",
+                                    true,
+                                    KeyboardType.Uri,
+                                )
+                            }
+                            if (f.security == "reality") {
+                                DialogField(f.publicKey, { f = f.copy(publicKey = it); error = null }, "Reality public key", true, KeyboardType.Text)
+                                DialogField(f.shortId, { f = f.copy(shortId = it) }, "Short ID (optional)", true, KeyboardType.Text)
+                            }
+                            if (f.protocol == "VLESS" && f.network == "tcp" && f.security != "none") {
+                                FieldLabel("Flow")
+                                ChipRow(listOf("none", "xtls-rprx-vision"), if (f.vision) "xtls-rprx-vision" else "none") {
+                                    f = f.copy(vision = it != "none")
+                                }
+                            }
+                        }
+                    }
+                }
+                error?.let { Text(it, color = Nova.Red, fontSize = 13.sp) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                error = if (tab == "Link") {
+                    onAddLink(link, linkName)
+                } else {
+                    try {
+                        onAddLink(f.toLink(), "")
+                    } catch (e: IllegalArgumentException) {
+                        e.message ?: "Check the fields"
+                    }
+                }
+            }) { Text("Add", color = Nova.Lime) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Nova.White) } },
+    )
+}
+
+@Composable
+private fun EmptyState(onAdd: () -> Unit) {
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        Modifier.fillMaxWidth().padding(top = 24.dp).chipSurface(shape).padding(20.dp),
+    ) {
+        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
+            color = Nova.TextMuted,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Nova.Lime)
+                .clickable(role = Role.Button, onClick = onAdd),
+            contentAlignment = Alignment.Center,
+        ) { Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
     }
 }
 
@@ -353,52 +765,6 @@ private fun MenuItem(text: String, checked: Boolean = false, color: Color = Nova
             { CheckIcon(Nova.Lime, Modifier.size(18.dp)) }
         } else null,
         onClick = onClick,
-    )
-}
-
-@Composable
-private fun AddServerDialog(
-    onDismiss: () -> Unit,
-    onPaste: () -> String,
-    onAdd: (link: String, name: String) -> String?,
-) {
-    var link by rememberSaveable { mutableStateOf("") }
-    var name by rememberSaveable { mutableStateOf("") }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Nova.CardRaised,
-        title = { Text("Add server", color = Nova.White) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Paste a share link: vless, vmess, trojan, ss, socks or wireguard.", color = Nova.TextMuted, fontSize = 14.sp)
-                DialogField(
-                    value = link,
-                    onChange = { link = it; error = null },
-                    placeholder = "vless://, vmess://, trojan://, ss://…",
-                    singleLine = false,
-                    keyboardType = KeyboardType.Uri,
-                )
-                DialogField(
-                    value = name,
-                    onChange = { name = it },
-                    placeholder = "Name (optional)",
-                    singleLine = true,
-                    keyboardType = KeyboardType.Text,
-                )
-                TextButton(onClick = { link = onPaste().trim(); error = null }) {
-                    Text("Paste from clipboard", color = Nova.Lime)
-                }
-                error?.let { Text(it, color = Nova.Red, fontSize = 13.sp) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { error = onAdd(link, name) }, enabled = link.isNotBlank()) {
-                Text("Add", color = if (link.isNotBlank()) Nova.Lime else Nova.Gray)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Nova.White) } },
     )
 }
 
@@ -430,6 +796,83 @@ private fun DialogField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun Banner(regions: List<Region>, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(26.dp)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(213.dp)
+            .clip(shape)
+            .background(
+                Brush.horizontalGradient(
+                    0f to Color(0xFF0C0C0D),
+                    1f to Color(0xFF1A1F00),
+                ),
+            )
+            .clickable(onClick = onClick),
+    ) {
+        // Orb peeking in from the right edge
+        OrbView(
+            Modifier
+                .requiredSize(338.dp) // sphere radius ≈ 128dp, centred on the card's right edge
+                .align(Alignment.CenterEnd)
+                .offset(x = 166.dp, y = (-4).dp),
+        )
+
+        Text(
+            "Need more\nregions?",
+            color = Nova.White,
+            fontSize = 29.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 13.dp, top = 12.dp),
+        )
+
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .size(65.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Nova.White),
+            contentAlignment = Alignment.Center,
+        ) {
+            ChevronIcon(Nova.Black, Modifier.size(22.dp))
+        }
+
+        Row(
+            Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val flags = regions.take(2).map { it.code }
+            Box(Modifier.width(72.dp).height(28.dp)) {
+                flags.forEachIndexed { i, code ->
+                    FlagBadge(
+                        code, 28,
+                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                    )
+                }
+                Box(
+                    Modifier
+                        .offset(x = (flags.size * 22).dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Nova.White)
+                        .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) { Text("+", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+            }
+            Text(
+                "Europe, USA, Canada",
+                color = Nova.TextMuted,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(start = 20.dp),
+            )
+        }
     }
 }
 

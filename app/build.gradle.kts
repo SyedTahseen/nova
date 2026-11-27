@@ -97,4 +97,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // QR scanning for "Add server -> QR code" (Google code scanner, no camera permission needed).
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 }

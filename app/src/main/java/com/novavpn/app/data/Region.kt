@@ -12,7 +12,23 @@ data class Region(
     val link: String,
     /** True for servers the user added themselves (stored on device, can be deleted). */
     val custom: Boolean = false,
+    /** Where the server came from: a subscription name, or "My servers" for hand-added ones. */
+    val group: String = "",
+    /** Id of the subscription that owns this server, if any. */
+    val subId: String? = null,
 ) {
+    /** Protocol shown in grouping/sorting, derived from the share link. */
+    val protocolName: String
+        get() = when (link.substringBefore("://").lowercase()) {
+            "vless" -> "VLESS"
+            "vmess" -> "VMess"
+            "trojan" -> "Trojan"
+            "ss" -> "Shadowsocks"
+            "socks", "socks4", "socks5", "socks5h" -> "SOCKS"
+            "wireguard", "wg" -> "WireGuard"
+            else -> "Other"
+        }
+
     /** "Germany" for a proxy named Germany; "Frankfurt 01, Germany" when the name adds detail. */
     val label: String
         get() = when {
@@ -31,3 +47,11 @@ fun flagEmoji(code: String): String {
     val second = base + code[1].uppercaseChar().code
     return String(Character.toChars(first)) + String(Character.toChars(second))
 }
+
+/** A subscription URL the user added; its servers are tagged with [Region.subId]. */
+data class Subscription(
+    val id: String,
+    val name: String,
+    val url: String,
+    val updatedAt: Long,
+)

@@ -70,6 +70,8 @@ object RegionRepository {
                     premium = false,
                     link = link,
                     custom = true,
+                    group = o.optString("group", "").ifBlank { MANUAL_GROUP },
+                    subId = o.optString("subId", "").takeIf { it.isNotBlank() },
                 )
             }
         }.getOrDefault(emptyList())
@@ -82,12 +84,39 @@ object RegionRepository {
                 JSONObject()
                     .put("id", r.id).put("city", r.city).put("country", r.country)
                     .put("code", r.code).put("lat", r.lat).put("lon", r.lon)
-                    .put("link", r.link),
+                    .put("link", r.link).put("group", r.group).put("subId", r.subId ?: ""),
             )
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_CUSTOM, arr.toString()).apply()
     }
+
+    const val MANUAL_GROUP = "My servers"
+    private const val KEY_SUBS = "subscriptions"
+
+    fun loadSubscriptions(context: Context): List<Subscription> {
+        val text = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_SUBS, null) ?: return emptyList()
+        return runCatching {
+            val arr = JSONArray(text)
+            List(arr.length()) { i ->
+                val o = arr.getJSONObject(i)
+                Subscription(o.getString("id"), o.getString("name"), o.getString("url"), o.optLong("updatedAt", 0L))
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveSubscriptions(context: Context, subs: List<Subscription>) {
+        val arr = JSONArray()
+        subs.forEach {
+            arr.put(JSONObject().put("id", it.id).put("name", it.name).put("url", it.url).put("updatedAt", it.updatedAt))
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SUBS, arr.toString()).apply()
+    }
+
+    /** UDP-only servers (WireGuard, kcp) can't be probed with a TCP connect. */
+    fun canProbe(region: Region): Boolean =
+        runCatching { !ServerLink.parse(region.link).isUdpOnly }.getOrDefault(true)
 
     /** TCP connect time to the server in ms, or null if unreachable. */
     suspend fun ping(region: Region): Int? = withContext(Dispatchers.IO) {

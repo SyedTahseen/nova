@@ -44,3 +44,13 @@ Not supported: Shadowsocks plugins, Hysteria / TUIC (need a different core).
 
 Before starting the tunnel the app resolves the host and opens a TCP connection to it, and shows the reason if that fails.
 Once connected it sends one real request through the tunnel; if that fails an orange warning appears on the Connected screen together with the last lines of Xray's error log (`files/xray.log`).
+
+## Adding servers (Regions screen → +)
+
+- **Subscription URL** – downloads the list (plain or base64 links), groups the servers under the subscription name; "Update subscriptions" in the ⋮ menu refreshes them.
+- **Import from clipboard** – one or many links; a single http(s) URL is offered as a subscription.
+- **Scan QR code** – Google code scanner (needs Google Play services; no camera permission in the app).
+- **Manual input** – paste a link, or fill in protocol / address / port / ID / transport / security fields.
+
+The ⋮ menu has Test, Sort (default / fastest / name), Group by (source / country / protocol / none) and Delete (unreachable, duplicates, manual servers, subscriptions, all).
+Subscription URLs may be plain http, so cleartext traffic is allowed in the manifest.

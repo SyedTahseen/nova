@@ -42,7 +42,6 @@ fun NovaApp(
     val selectedId by vm.selectedId.collectAsStateWithLifecycle()
     val pings by vm.pings.collectAsStateWithLifecycle()
     val regions by vm.regions.collectAsStateWithLifecycle()
-    val sort by vm.sort.collectAsStateWithLifecycle()
 
     var showRegions by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -101,10 +100,7 @@ fun NovaApp(
             exit = slideOutVertically { it / 6 } + fadeOut(),
         ) {
             RegionsScreen(
-                regions = regions,
-                selectedId = selectedId,
-                pings = pings,
-                sort = sort,
+                vm = vm,
                 onSelect = { r ->
                     vm.select(r.id)
                     showRegions = false
@@ -112,12 +108,10 @@ fun NovaApp(
                     // Switch servers on the fly if a tunnel is already up.
                     if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) onConnect(r)
                 },
+                onMoreRegions = {
+                    Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
+                },
                 startWithAdd = openAddOnShow,
-                onAddServer = vm::addServer,
-                onDeleteServer = vm::deleteServer,
-                onDeleteAllCustom = vm::deleteAllCustom,
-                onTestAll = vm::refreshPings,
-                onSortChange = vm::setSort,
             )
         }
     }
