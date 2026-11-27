@@ -1,0 +1,42 @@
+[
+  {
+    "id": "london", "city": "London", "country": "UK", "code": "GB",
+    "lat": 51.51, "lon": -0.13, "premium": false,
+    "link": "vless://00000000-0000-0000-0000-000000000000@london.example.com:443?type=tcp&security=reality&pbk=REPLACE_PUBLIC_KEY&sid=REPLACE_SHORT_ID&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#London"
+  },
+  {
+    "id": "berlin", "city": "Berlin", "country": "Germany", "code": "DE",
+    "lat": 52.52, "lon": 13.40, "premium": false,
+    "link": "vless://00000000-0000-0000-0000-000000000000@berlin.example.com:443?type=tcp&security=reality&pbk=REPLACE_PUBLIC_KEY&sid=REPLACE_SHORT_ID&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#Berlin"
+  },
+  {
+    "id": "toronto", "city": "Toronto", "country": "Canada", "code": "CA",
+    "lat": 43.65, "lon": -79.38, "premium": false,
+    "link": "vless://00000000-0000-0000-0000-000000000000@toronto.example.com:443?type=ws&security=tls&sni=toronto.example.com&path=%2Fws#Toronto"
+  },
+  {
+    "id": "kyiv", "city": "Kyiv", "country": "Ukraine", "code": "UA",
+    "lat": 50.45, "lon": 30.52, "premium": false,
+    "link": "vless://00000000-0000-0000-0000-000000000000@kyiv.example.com:443?type=tcp&security=reality&pbk=REPLACE_PUBLIC_KEY&sid=REPLACE_SHORT_ID&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#Kyiv"
+  },
+  {
+    "id": "warsaw", "city": "Warsaw", "country": "Poland", "code": "PL",
+    "lat": 52.23, "lon": 21.01, "premium": false,
+    "link": "vless://00000000-0000-0000-0000-000000000000@warsaw.example.com:443?type=tcp&security=reality&pbk=REPLACE_PUBLIC_KEY&sid=REPLACE_SHORT_ID&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#Warsaw"
+  },
+  {
+    "id": "nyc", "city": "New York City", "country": "USA", "code": "US",
+    "lat": 40.71, "lon": -74.01, "premium": true,
+    "link": "vless://00000000-0000-0000-0000-000000000000@nyc.example.com:443?type=grpc&security=tls&sni=nyc.example.com&serviceName=grpc#NYC"
+  },
+  {
+    "id": "amsterdam", "city": "Amsterdam", "country": "Netherlands", "code": "NL",
+    "lat": 52.37, "lon": 4.90, "premium": true,
+    "link": "vless://00000000-0000-0000-0000-000000000000@amsterdam.example.com:443?type=tcp&security=reality&pbk=REPLACE_PUBLIC_KEY&sid=REPLACE_SHORT_ID&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#Amsterdam"
+  },
+  {
+    "id": "tokyo", "city": "Tokyo", "country": "Japan", "code": "JP",
+    "lat": 35.68, "lon": 139.69, "premium": true,
+    "link": "trojan://REPLACE_PASSWORD@tokyo.example.com:443?type=tcp&security=tls&sni=tokyo.example.com#Tokyo"
+  }
+]
