@@ -17,16 +17,16 @@ import com.novavpn.app.ui.theme.Nova
  */
 fun Modifier.glassSurface(shape: Shape): Modifier = this
     .clip(shape)
-    .background(Nova.Pill.copy(alpha = 0.68f))
+    .background(Nova.Pill.copy(alpha = 0.90f))
     .background(
         Brush.verticalGradient(
-            listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.02f)),
+            listOf(Color.White.copy(alpha = 0.05f), Color.White.copy(alpha = 0.01f)),
         ),
     )
     .border(
         1.dp,
         Brush.linearGradient(
-            colors = listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.06f)),
+            colors = listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f)),
             start = Offset(0f, 0f),
             end = Offset(120f, 120f),
         ),
