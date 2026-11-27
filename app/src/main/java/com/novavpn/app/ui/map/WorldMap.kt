@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.SignalIcon
+import com.novavpn.app.ui.components.glassSurface
 import com.novavpn.app.ui.theme.Nova
 import kotlin.math.PI
 import kotlin.math.ln
@@ -168,8 +169,7 @@ fun WorldMap(
                         p.place((mx - p.width / 2f).roundToInt(), (my - p.height - gapPx).roundToInt())
                     }
                 }
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xC71F1F22)) // ~78% opaque: slightly translucent
+                .glassSurface(RoundedCornerShape(20.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

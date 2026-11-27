@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.HamburgerIcon
+import com.novavpn.app.ui.components.glassSurface
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
@@ -129,7 +130,7 @@ private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(width = 64.dp, height = 48.dp)
-            .chipSurface(shape, fillAlpha = 0.78f) // slightly see-through so the map hints through
+            .glassSurface(shape)
             .clickable(onClickLabel = "Open settings", role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
