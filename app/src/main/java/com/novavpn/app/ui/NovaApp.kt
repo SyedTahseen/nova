@@ -25,6 +25,7 @@ import com.novavpn.app.data.Region
 import com.novavpn.app.ui.screens.ConnectedScreen
 import com.novavpn.app.ui.screens.HomeScreen
 import com.novavpn.app.ui.screens.RegionsScreen
+import com.novavpn.app.ui.screens.SettingsScreen
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.vpn.VpnController
 import com.novavpn.app.vpn.VpnStatus
@@ -42,6 +43,9 @@ fun NovaApp(
     val pings by vm.pings.collectAsStateWithLifecycle()
 
     var showRegions by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    // Registered first so the Regions handler below wins when Regions is open on top of Settings.
+    BackHandler(enabled = showSettings) { showSettings = false }
     BackHandler(enabled = showRegions) { showRegions = false }
 
     val selected = vm.region(selectedId)
@@ -63,12 +67,28 @@ fun NovaApp(
                     error = vpn.error,
                     onSelect = { vm.select(it.id); VpnController.clearError() },
                     onOpenRegions = { showRegions = true },
+                    onOpenSettings = { showSettings = true },
                     onConnect = {
                         VpnController.clearError()
                         onConnect(selected)
                     },
                 )
             }
+        }
+
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInVertically { it / 6 } + fadeIn(),
+            exit = slideOutVertically { it / 6 } + fadeOut(),
+        ) {
+            SettingsScreen(
+                onBack = { showSettings = false },
+                onOpenRegions = { showRegions = true },
+                onRefreshPings = {
+                    vm.refreshPings()
+                    Toast.makeText(context, "Re-testing servers…", Toast.LENGTH_SHORT).show()
+                },
+            )
         }
 
         AnimatedVisibility(

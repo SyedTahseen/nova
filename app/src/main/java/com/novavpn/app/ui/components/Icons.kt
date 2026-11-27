@@ -111,3 +111,17 @@ fun DotsGridIcon(color: Color, modifier: Modifier = Modifier.size(22.dp, 16.dp))
         }
     }
 }
+
+/** Three horizontal bars – the menu / settings glyph. */
+@Composable
+fun HamburgerIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val stroke = 2.dp.toPx()
+        val x0 = size.width * 0.12f
+        val x1 = size.width * 0.88f
+        for (f in listOf(0.26f, 0.5f, 0.74f)) {
+            val y = size.height * f
+            drawLine(color, Offset(x0, y), Offset(x1, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        }
+    }
+}

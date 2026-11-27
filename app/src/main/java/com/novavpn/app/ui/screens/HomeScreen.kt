@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,10 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
+import com.novavpn.app.ui.components.HamburgerIcon
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
@@ -45,6 +48,7 @@ fun HomeScreen(
     error: String?,
     onSelect: (Region) -> Unit,
     onOpenRegions: () -> Unit,
+    onOpenSettings: () -> Unit,
     onConnect: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
@@ -52,6 +56,14 @@ fun HomeScreen(
             selected = selected,
             others = regions,
             onMarkerClick = onOpenRegions,
+        )
+
+        MenuPill(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(start = 16.dp, top = 12.dp),
         )
 
         Column(
@@ -100,6 +112,23 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
+    }
+}
+
+/** Hamburger pill pinned to the top-left of Home; opens Settings. */
+@Composable
+private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        modifier
+            .size(width = 64.dp, height = 48.dp)
+            .clip(shape)
+            .background(Nova.Card)
+            .border(1.dp, Nova.CardBorder, shape)
+            .clickable(onClickLabel = "Open settings", role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        HamburgerIcon(Nova.White, Modifier.size(22.dp))
     }
 }
 
