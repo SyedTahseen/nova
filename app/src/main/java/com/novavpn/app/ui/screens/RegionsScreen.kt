@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -54,11 +56,11 @@ fun RegionsScreen(
             .fillMaxSize()
             .background(Nova.Black)
             .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item { Banner(regions, onMoreRegions) }
-        item { Spacer(Modifier.height(4.dp)) }
+        item { Spacer(Modifier.height(21.dp)) }
 
         items(free, key = { it.id }) { r ->
             RegionRow(r, r.id == selectedId, pings[r.id]) { onSelect(r) }
@@ -71,7 +73,7 @@ fun RegionsScreen(
                     color = Nova.White,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 14.dp, bottom = 4.dp, start = 4.dp),
+                    modifier = Modifier.padding(top = 24.dp, bottom = 10.dp, start = 2.dp),
                 )
             }
             items(premium, key = { it.id }) { r ->
@@ -89,7 +91,7 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .height(176.dp)
+            .height(212.dp)
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
@@ -102,53 +104,54 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         // Orb peeking in from the right edge
         OrbView(
             Modifier
-                .size(260.dp)
+                .requiredSize(333.dp)
                 .align(Alignment.CenterEnd)
-                .offset(x = 120.dp),
+                .offset(x = 160.dp),
+            radiusFraction = 0.84f,
         )
 
         Text(
             "Need more\nregions?",
             color = Nova.White,
-            fontSize = 26.sp,
-            lineHeight = 30.sp,
+            fontSize = 30.sp,
+            lineHeight = 34.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 20.dp, top = 20.dp),
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 14.dp),
         )
 
         Box(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(14.dp)
-                .size(54.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .padding(10.dp)
+                .size(66.dp)
+                .clip(RoundedCornerShape(24.dp))
                 .background(Nova.White),
             contentAlignment = Alignment.Center,
         ) {
-            ChevronIcon(Nova.Black, Modifier.size(22.dp))
+            ChevronIcon(Nova.Black, Modifier.size(24.dp), strokeWidth = 1.6.dp)
         }
 
         Row(
-            Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 16.dp),
+            Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val flags = regions.take(2).map { it.flag }
-            Box(Modifier.width(66.dp).height(30.dp)) {
+            Box(Modifier.width(72.dp).height(28.dp)) {
                 flags.forEachIndexed { i, f ->
                     Box(
                         Modifier
-                            .offset(x = (i * 20).dp)
-                            .size(30.dp)
+                            .offset(x = (i * 22).dp)
+                            .size(28.dp)
                             .clip(CircleShape)
                             .background(Nova.CardRaised)
                             .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
                         contentAlignment = Alignment.Center,
-                    ) { Text(f, fontSize = 15.sp) }
+                    ) { Text(f, fontSize = 32.sp, modifier = Modifier.wrapContentSize(unbounded = true)) }
                 }
                 Box(
                     Modifier
-                        .offset(x = (flags.size * 20).dp)
-                        .size(30.dp)
+                        .offset(x = (flags.size * 22).dp)
+                        .size(28.dp)
                         .clip(CircleShape)
                         .background(Nova.White)
                         .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
@@ -158,8 +161,8 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
             Text(
                 "Europe, USA, Canada",
                 color = Nova.TextMuted,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(start = 28.dp),
+                fontSize = 15.sp,
+                modifier = Modifier.padding(start = 19.dp),
             )
         }
     }
@@ -167,7 +170,7 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
 
 @Composable
 private fun RegionRow(region: Region, selected: Boolean, pingMs: Int?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     val bg = if (selected) Nova.Lime else Nova.Card
     Row(
         Modifier
@@ -176,29 +179,29 @@ private fun RegionRow(region: Region, selected: Boolean, pingMs: Int?, onClick: 
             .background(bg)
             .then(if (selected) Modifier else Modifier.border(1.dp, Nova.CardBorder, shape))
             .clickable(onClick = onClick)
-            .padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 32.dp, end = 7.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             region.label,
-            color = if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            color = if (selected) Nova.Black else Nova.TextMuted,
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             modifier = Modifier.weight(1f),
         )
-        val btnShape = RoundedCornerShape(18.dp)
+        val btnShape = RoundedCornerShape(26.dp)
         Box(
             Modifier
-                .size(54.dp)
+                .size(72.dp)
                 .clip(btnShape)
-                .background(if (selected) Color.Transparent else Nova.CardRaised)
+                .background(Color.Transparent)
                 .border(1.dp, if (selected) Nova.Black.copy(alpha = 0.85f) else Nova.CardBorder, btnShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                CheckIcon(Nova.Black, Modifier.size(22.dp))
+                CheckIcon(Nova.Black, Modifier.size(24.dp))
             } else {
-                SignalIcon(pingColor(pingMs), Modifier.size(20.dp))
+                SignalIcon(pingColor(pingMs), Modifier.size(24.dp))
             }
         }
     }

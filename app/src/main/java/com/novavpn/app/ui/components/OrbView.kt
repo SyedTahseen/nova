@@ -29,7 +29,7 @@ import kotlin.math.sin
  * [speed] > 1 spins the swirls faster (used while connecting).
  */
 @Composable
-fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
+fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f, radiusFraction: Float = 0.76f) {
     val infinite = rememberInfiniteTransition(label = "orb")
     val t by infinite.animateFloat(
         initialValue = 0f,
@@ -40,13 +40,13 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
 
     Canvas(modifier) {
         val c = center
-        val r = size.minDimension / 2f * 0.76f
+        val r = size.minDimension / 2f * radiusFraction
 
         // Outer glow
         drawCircle(
             brush = Brush.radialGradient(
-                0f to Nova.Lime.copy(alpha = 0.42f),
-                0.55f to Nova.Lime.copy(alpha = 0.14f),
+                0f to Nova.Lime.copy(alpha = 0.55f),
+                0.55f to Nova.Lime.copy(alpha = 0.20f),
                 1f to Color.Transparent,
                 center = c,
                 radius = r * 1.5f,
@@ -58,10 +58,10 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         // Body
         drawCircle(
             brush = Brush.radialGradient(
-                0f to Color(0xFF262E00),
-                0.5f to Color(0xFF6E8400),
-                0.86f to Color(0xFFD0EC00),
-                1f to Color(0xFFF1FF7A),
+                0f to Color(0xFF4A5600),
+                0.5f to Color(0xFF8FA600),
+                0.86f to Color(0xFFDCF800),
+                1f to Color(0xFFF4FF8C),
                 center = c,
                 radius = r,
             ),
@@ -91,7 +91,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
                 drawPath(
                     path,
                     color = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
-                        .copy(alpha = 0.16f + 0.09f * (i % 3)),
+                        .copy(alpha = 0.22f + 0.10f * (i % 3)),
                     style = Stroke(width = (1.5f + (i % 4)).dp.toPx(), cap = StrokeCap.Round),
                 )
             }
@@ -113,7 +113,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         drawCircle(Nova.Lime.copy(alpha = 0.9f), r, c, style = Stroke(2.dp.toPx()))
         for (k in 1..5) {
             drawCircle(
-                Nova.Lime.copy(alpha = 0.16f / k),
+                Nova.Lime.copy(alpha = 0.24f / k),
                 radius = r + k * 2.6.dp.toPx(),
                 center = c,
                 style = Stroke(3.dp.toPx()),

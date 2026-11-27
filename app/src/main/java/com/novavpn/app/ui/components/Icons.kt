@@ -1,7 +1,6 @@
 package com.novavpn.app.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -42,16 +41,27 @@ fun ChevronIcon(
     }
 }
 
-/** Three chevrons in a row with individual alphas – the "swipe this way" hint. */
+/** Three tight, thin chevrons with individual alphas – the "swipe this way" hint. */
 @Composable
 fun TripleChevron(color: Color, alphas: List<Float>, left: Boolean) {
-    Row {
+    Canvas(Modifier.size(32.dp, 18.dp)) {
+        val step = 10.dp.toPx()
+        val cw = 6.5.dp.toPx()
+        val ch = size.height * 0.9f
+        val top = (size.height - ch) / 2f
         repeat(3) { i ->
-            ChevronIcon(
-                color = color.copy(alpha = alphas[i]),
-                modifier = Modifier.size(14.dp, 20.dp),
-                left = left,
-                strokeWidth = 1.6.dp,
+            val x0 = 1.5.dp.toPx() + i * step
+            val path = Path().apply {
+                if (left) {
+                    moveTo(x0 + cw, top); lineTo(x0, top + ch / 2f); lineTo(x0 + cw, top + ch)
+                } else {
+                    moveTo(x0, top); lineTo(x0 + cw, top + ch / 2f); lineTo(x0, top + ch)
+                }
+            }
+            drawPath(
+                path,
+                color.copy(alpha = alphas[i]),
+                style = Stroke(1.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
         }
     }
@@ -70,7 +80,7 @@ fun CheckIcon(color: Color, modifier: Modifier = Modifier.size(20.dp)) {
         drawPath(
             path,
             color,
-            style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
 }
@@ -82,7 +92,7 @@ fun SignalIcon(color: Color, modifier: Modifier = Modifier.size(18.dp)) {
         val c = center
         val w = size.width
         drawCircle(color, radius = w * 0.11f, center = c)
-        val stroke = Stroke(w * 0.085f, cap = StrokeCap.Round)
+        val stroke = Stroke(w * 0.07f, cap = StrokeCap.Round)
         for (r in listOf(w * 0.27f, w * 0.44f)) {
             val tl = Offset(c.x - r, c.y - r)
             val sz = Size(r * 2, r * 2)
@@ -94,16 +104,16 @@ fun SignalIcon(color: Color, modifier: Modifier = Modifier.size(18.dp)) {
 
 /** 3x2 dot grid shown on the slider knob. */
 @Composable
-fun DotsGridIcon(color: Color, modifier: Modifier = Modifier.size(22.dp, 16.dp)) {
+fun DotsGridIcon(color: Color, modifier: Modifier = Modifier.size(30.dp, 20.dp)) {
     Canvas(modifier) {
-        val r = size.height * 0.085f
+        val r = size.height * 0.065f
         for (row in 0..1) {
             for (col in 0..2) {
                 drawCircle(
                     color,
                     radius = r,
                     center = Offset(
-                        size.width * (0.17f + col * 0.33f),
+                        size.width * (0.2f + col * 0.3f),
                         size.height * (0.3f + row * 0.4f),
                     ),
                 )
