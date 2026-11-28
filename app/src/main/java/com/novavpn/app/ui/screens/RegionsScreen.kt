@@ -27,7 +27,21 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -106,6 +120,8 @@ fun RegionsScreen(
     onSelect: (Region) -> Unit,
     onMoreRegions: () -> Unit,
     startWithAdd: Boolean = false,
+    /** True while the screen is still sliding in: the list is left empty and fades in afterwards. */
+    deferList: Boolean = false,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -142,7 +158,8 @@ fun RegionsScreen(
     }
 
     val q = query.trim().lowercase()
-    val filtered = if (q.isEmpty()) regions else regions.filter {
+    val source = if (deferList) emptyList() else regions
+    val filtered = if (q.isEmpty()) source else source.filter {
         it.label.lowercase().contains(q) || it.code.lowercase() == q ||
             it.id.lowercase().contains(q) || it.group.lowercase().contains(q) ||
             it.protocolName.lowercase().contains(q)
@@ -241,8 +258,9 @@ fun RegionsScreen(
             onManual = { showManual = true },
         )
 
+        val listAlpha by animateFloatAsState(if (deferList) 0f else 1f, tween(220), label = "listAlpha")
         LazyColumn(
-            Modifier.weight(1f).fillMaxWidth(),
+            Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = listAlpha },
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -251,7 +269,9 @@ fun RegionsScreen(
                 item { Spacer(Modifier.height(4.dp)) }
             }
 
-            if (regions.isEmpty()) {
+            if (deferList) {
+                // nothing yet
+            } else if (regions.isEmpty()) {
                 item {
                     EmptyStateCard(
                         title = "No servers yet",
@@ -486,11 +506,22 @@ private fun RegionsHeader(
             NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             NovaDropdownMenu(
                 expanded = moreOpen,
-                onDismissRequest = { moreOpen = false; page = "root" },
+                onDismissRequest = { moreOpen = false },
             ) {
-                fun close(block: () -> Unit): () -> Unit = { moreOpen = false; page = "root"; block() }
+                // The page is reset when the menu is next opened, so it does not flip back while fading out.
+                fun close(block: () -> Unit): () -> Unit = { moreOpen = false; block() }
 
-                when (page) {
+                AnimatedContent(
+                    targetState = page,
+                    transitionSpec = {
+                        (fadeIn(tween(180, delayMillis = 70)))
+                            .togetherWith(fadeOut(tween(80)))
+                            .using(SizeTransform(clip = true) { _, _ -> tween(240, easing = FastOutSlowInEasing) })
+                    },
+                    label = "menuPage",
+                ) { p ->
+                Column(Modifier.fillMaxWidth()) {
+                when (p) {
                     "sort" -> {
                         NovaMenuBack("Sort") { page = "root" }
                         NovaMenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
@@ -530,6 +561,8 @@ private fun RegionsHeader(
                         NovaSubMenuItem("Group by") { page = "group" }
                         if (menu.custom > 0) NovaSubMenuItem("Delete", color = Nova.Red) { page = "delete" }
                     }
+                }
+                }
                 }
             }
         }
@@ -782,17 +815,32 @@ private fun RegionRow(
     val bg = if (selected) Nova.Lime else Nova.Card
     var menuOpen by remember { mutableStateOf(false) }
     val hasMenu = onCopy != null || onDelete != null
+    val haptic = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    // Row sinks slightly while pressed and while its menu is open, so the long press feels acknowledged.
+    val pressScale by animateFloatAsState(
+        if (pressed || menuOpen) 0.97f else 1f,
+        tween(160, easing = FastOutSlowInEasing),
+        label = "rowPress",
+    )
 
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
+                .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
                 .clip(shape)
                 .background(bg)
                 .then(if (selected) Modifier else Modifier.border(1.dp, Nova.CardBorder, shape))
                 .combinedClickable(
+                    interactionSource = interaction,
+                    indication = LocalIndication.current,
                     onClick = onClick,
-                    onLongClick = if (hasMenu) ({ menuOpen = true }) else null,
+                    onLongClick = if (hasMenu) ({
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuOpen = true
+                    }) else null,
                     onLongClickLabel = if (hasMenu) "Server options" else null,
                 )
                 .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),

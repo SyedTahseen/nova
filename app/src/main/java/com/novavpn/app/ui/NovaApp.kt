@@ -4,14 +4,20 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +35,12 @@ import com.novavpn.app.ui.screens.SettingsScreen
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.vpn.VpnController
 import com.novavpn.app.vpn.VpnStatus
+
+// Material "emphasized" curves: fast start that settles gently, and a quick, clean exit.
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+private const val ENTER_MS = 420
+private const val EXIT_MS = 300
 
 @Composable
 fun NovaApp(
@@ -54,7 +66,7 @@ fun NovaApp(
     val inSession = vpn.status != VpnStatus.Disconnected
 
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
-        Crossfade(targetState = inSession, label = "root") { connected ->
+        Crossfade(targetState = inSession, animationSpec = tween(450, easing = FastOutSlowInEasing), label = "root") { connected ->
             if (connected) {
                 ConnectedScreen(
                     vpn = vpn,
@@ -82,8 +94,8 @@ fun NovaApp(
 
         AnimatedVisibility(
             visible = showSettings,
-            enter = slideInVertically { it / 6 } + fadeIn(),
-            exit = slideOutVertically { it / 6 } + fadeOut(),
+            enter = slideInHorizontally(tween(ENTER_MS, easing = EmphasizedDecelerate)) { -it },
+            exit = slideOutHorizontally(tween(EXIT_MS, easing = EmphasizedAccelerate)) { -it },
         ) {
             SettingsScreen(
                 onBack = { showSettings = false },
@@ -97,9 +109,14 @@ fun NovaApp(
 
         AnimatedVisibility(
             visible = showRegions,
-            enter = slideInVertically { it / 6 } + fadeIn(),
-            exit = slideOutVertically { it / 6 } + fadeOut(),
+            enter = slideInVertically(tween(ENTER_MS, easing = EmphasizedDecelerate)) { it },
+            exit = slideOutVertically(tween(EXIT_MS, easing = EmphasizedAccelerate)) { it },
         ) {
+            // Keep the heavy server list out of the first frames so the slide stays at full frame rate.
+            var listReady by remember { mutableStateOf(false) }
+            LaunchedEffect(transition.currentState) {
+                if (transition.currentState == EnterExitState.Visible) listReady = true
+            }
             RegionsScreen(
                 vm = vm,
                 onSelect = { r ->
@@ -113,6 +130,7 @@ fun NovaApp(
                     Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
                 },
                 startWithAdd = openAddOnShow,
+                deferList = !listReady,
             )
         }
     }

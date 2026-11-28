@@ -19,11 +19,31 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -131,7 +151,10 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 /**
  * The app's popup menu (three-dot, + and per-server menus). Same card surface as the rest of the app:
- * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Card-style rounded corners, no tonal tint.
+ * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Menu corners, no tonal tint.
+ *
+ * It is our own popup rather than Material's DropdownMenu so it can grow out of the button that opened it
+ * (scale + fade from the anchor corner) and fade away quickly when dismissed.
  */
 @Composable
 fun NovaDropdownMenu(
@@ -141,21 +164,88 @@ fun NovaDropdownMenu(
     offset: DpOffset = DpOffset(0.dp, 6.dp),
     content: @Composable () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
+    val state = remember { MutableTransitionState(false) }
+    state.targetState = expanded
+    // Keep the popup alive until the exit animation has finished.
+    if (!state.currentState && !state.targetState) return
+
+    val density = LocalDensity.current
+    val marginPx = with(density) { 12.dp.roundToPx() }
+    val offX = with(density) { offset.x.roundToPx() }
+    val offY = with(density) { offset.y.roundToPx() }
+    var origin by remember { mutableStateOf(TransformOrigin(0f, 0f)) }
+
+    val positionProvider = remember(offX, offY, marginPx) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset {
+                val w = popupContentSize.width
+                val h = popupContentSize.height
+                // Horizontal: line up with the anchor's left edge, or its right edge if that would overflow.
+                var x = anchorBounds.left + offX
+                if (x + w > windowSize.width - marginPx) x = anchorBounds.right - offX - w
+                x = x.coerceIn(marginPx, maxOf(marginPx, windowSize.width - w - marginPx))
+                // Vertical: below the anchor, or above it if there is no room.
+                var y = anchorBounds.bottom + offY
+                var below = true
+                if (y + h > windowSize.height - marginPx) {
+                    val above = anchorBounds.top - offY - h
+                    if (above >= marginPx) {
+                        y = above
+                        below = false
+                    } else {
+                        y = maxOf(marginPx, windowSize.height - h - marginPx)
+                    }
+                }
+                val px = ((anchorBounds.center.x - x).toFloat() / w.coerceAtLeast(1)).coerceIn(0f, 1f)
+                origin = TransformOrigin(px, if (below) 0f else 1f)
+                return IntOffset(x, y)
+            }
+        }
+    }
+
+    val transition = updateTransition(state, label = "menu")
+    val scale by transition.animateFloat(
+        transitionSpec = { if (targetState) tween(240, easing = MenuEnterEasing) else tween(120, easing = FastOutLinearInEasing) },
+        label = "menuScale",
+    ) { if (it) 1f else 0.9f }
+    val alpha by transition.animateFloat(
+        transitionSpec = { if (targetState) tween(150) else tween(100) },
+        label = "menuAlpha",
+    ) { if (it) 1f else 0f }
+
+    Popup(
+        popupPositionProvider = positionProvider,
         onDismissRequest = onDismissRequest,
-        modifier = modifier.defaultMinSize(minWidth = 220.dp),
-        offset = offset,
-        shape = NovaShapes.Menu,
-        containerColor = Nova.CardRaised,
-        tonalElevation = 0.dp,
-        shadowElevation = 12.dp,
-        border = BorderStroke(1.dp, Nova.CardBorder),
+        properties = PopupProperties(focusable = true),
     ) {
-        // Inner padding so the rounded corners never clip the first / last row.
-        Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
+        Surface(
+            modifier = modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                    transformOrigin = origin
+                }
+                .width(MenuWidth),
+            shape = NovaShapes.Menu,
+            color = Nova.CardRaised,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            border = BorderStroke(1.dp, Nova.CardBorder),
+        ) {
+            // Inner padding so the rounded corners never clip the first / last row.
+            Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
+        }
     }
 }
+
+private val MenuWidth = 240.dp
+private val MenuEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
 
 private val MenuItemPadding = PaddingValues(horizontal = NovaSpace.Xl, vertical = NovaSpace.M)
 
