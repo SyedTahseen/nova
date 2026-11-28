@@ -49,13 +49,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -65,7 +65,6 @@ import com.google.mlkit.vision.common.InputImage
 import com.novavpn.app.ui.components.AlbumIcon
 import com.novavpn.app.ui.components.CloseIcon
 import com.novavpn.app.ui.components.FlashIcon
-import com.novavpn.app.ui.components.PILL_OVERLAY_ALPHA
 import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaShapes
@@ -77,16 +76,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Full-screen QR scanner in the app's own style: live camera, Cancel (top left),
  * and Flash / Album buttons at the bottom. [onResult] gets the raw text of the first QR code found,
  * from the camera or from a photo picked in the album.
+ * Drawn as an overlay inside the app window (not a Dialog) so status/navigation bar insets work.
  */
 @Composable
-fun QrScannerDialog(onResult: (String) -> Unit, onClose: () -> Unit) {
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        BackHandler(onBack = onClose)
-        ScannerContent(onResult, onClose)
-    }
+fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    ScannerContent(onResult, onClose)
 }
 
 @Composable
@@ -150,7 +145,12 @@ private fun ScannerContent(onResult: (String) -> Unit, onClose: () -> Unit) {
             .addOnFailureListener { Toast.makeText(context, "Couldn't read this image", Toast.LENGTH_SHORT).show() }
     }
 
-    Box(Modifier.fillMaxSize().background(Nova.Black)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Nova.Black)
+            .pointerInput(Unit) { detectTapGestures { } }, // block taps from reaching the screen underneath
+    ) {
         if (hasCamera) {
             CameraPreview(
                 scanner = scanner,
@@ -238,8 +238,9 @@ private fun ScannerButton(
     Row(
         modifier
             .height(48.dp)
-            .pressable(shape, Press.Pill, enabled = enabled, label = label, onClick = onClick)
-            .chipSurface(shape, selected, fillAlpha = PILL_OVERLAY_ALPHA)
+            // pressedScale = 1f: no size change on press, the colour change shows the state
+            .pressable(shape, 1f, enabled = enabled, label = label, onClick = onClick)
+            .chipSurface(shape, selected)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,

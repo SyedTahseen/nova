@@ -98,7 +98,7 @@ import com.novavpn.app.ui.components.PlusIcon
 import com.novavpn.app.ui.components.SearchIcon
 import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.chipSurface
-import com.novavpn.app.ui.QrScannerDialog
+import com.novavpn.app.ui.QrScannerScreen
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaMenu
 
@@ -231,6 +231,7 @@ fun RegionsScreen(
         },
     )
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
@@ -295,10 +296,11 @@ fun RegionsScreen(
     }
 
     if (showScanner) {
-        QrScannerDialog(
+        QrScannerScreen(
             onResult = { showScanner = false; handleImport(it) },
             onClose = { showScanner = false },
         )
+    }
     }
 
     if (showSub) {
