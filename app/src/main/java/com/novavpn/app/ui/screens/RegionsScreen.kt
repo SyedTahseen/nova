@@ -158,7 +158,7 @@ fun RegionsScreen(
     }
 
     val q = query.trim().lowercase()
-    val source = if (deferList) emptyList() else regions
+    val source: List<Region> = if (deferList) emptyList<Region>() else regions
     val filtered = if (q.isEmpty()) source else source.filter {
         it.label.lowercase().contains(q) || it.code.lowercase() == q ||
             it.id.lowercase().contains(q) || it.group.lowercase().contains(q) ||
