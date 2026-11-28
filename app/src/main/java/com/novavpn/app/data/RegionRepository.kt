@@ -101,7 +101,10 @@ object RegionRepository {
             val arr = JSONArray(text)
             List(arr.length()) { i ->
                 val o = arr.getJSONObject(i)
-                Subscription(o.getString("id"), o.getString("name"), o.getString("url"), o.optLong("updatedAt", 0L))
+                Subscription(
+                    o.getString("id"), o.getString("name"), o.getString("url"), o.optLong("updatedAt", 0L),
+                    o.optJSONObject("info")?.let(::infoFromJson),
+                )
             }
         }.getOrDefault(emptyList())
     }
@@ -109,10 +112,34 @@ object RegionRepository {
     fun saveSubscriptions(context: Context, subs: List<Subscription>) {
         val arr = JSONArray()
         subs.forEach {
-            arr.put(JSONObject().put("id", it.id).put("name", it.name).put("url", it.url).put("updatedAt", it.updatedAt))
+            val o = JSONObject().put("id", it.id).put("name", it.name).put("url", it.url).put("updatedAt", it.updatedAt)
+            it.info?.let { info -> o.put("info", infoToJson(info)) }
+            arr.put(o)
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SUBS, arr.toString()).apply()
     }
+
+    private fun infoToJson(i: SubscriptionInfo) = JSONObject().apply {
+        i.usedBytes?.let { put("used", it) }
+        i.totalBytes?.let { put("total", it) }
+        i.expireAt?.let { put("expire", it) }
+        i.title?.let { put("title", it) }
+        i.announce?.let { put("announce", it) }
+        i.supportUrl?.let { put("support", it) }
+        i.webUrl?.let { put("web", it) }
+        i.updateHours?.let { put("hours", it) }
+    }
+
+    private fun infoFromJson(o: JSONObject) = SubscriptionInfo(
+        usedBytes = if (o.has("used")) o.getLong("used") else null,
+        totalBytes = if (o.has("total")) o.getLong("total") else null,
+        expireAt = if (o.has("expire")) o.getLong("expire") else null,
+        title = o.optString("title").ifBlank { null },
+        announce = o.optString("announce").ifBlank { null },
+        supportUrl = o.optString("support").ifBlank { null },
+        webUrl = o.optString("web").ifBlank { null },
+        updateHours = if (o.has("hours")) o.getInt("hours") else null,
+    )
 
     /** UDP-only servers (WireGuard, kcp) can't be probed with a TCP connect. */
     fun canProbe(region: Region): Boolean =

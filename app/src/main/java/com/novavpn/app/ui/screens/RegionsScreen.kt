@@ -259,6 +259,10 @@ fun RegionsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (!searching && q.isEmpty()) {
+                // Plan details (traffic, expiry, notes) of each subscription that sent any.
+                subs.filter { it.info?.hasPlanDetails == true }.forEach { sub ->
+                    item(key = "subinfo-${sub.id}") { SubscriptionCard(sub) }
+                }
                 item { Banner(regions, onMoreRegions) }
                 item { Spacer(Modifier.height(4.dp)) }
             }

@@ -131,6 +131,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refreshPings()
+        autoUpdateSubscriptions()
+    }
+
+    /** Re-downloads subscriptions that are older than the interval their provider asked for (default 24 h). */
+    private fun autoUpdateSubscriptions() {
+        val now = System.currentTimeMillis()
+        _subs.value
+            // Also picks up plan details for subscriptions added before the app read them.
+            .filter {
+                val age = now - it.updatedAt
+                age >= (it.info?.updateHours ?: 24) * 3_600_000L || (it.info == null && age >= 600_000L)
+            }
+            .forEach { sub ->
+                viewModelScope.launch {
+                    runCatching {
+                        val fetched = SubscriptionClient.fetch(sub.url)
+                        applySubscription(sub.copy(updatedAt = System.currentTimeMillis(), info = fetched.info), fetched.links)
+                    } // offline or server down: keep what we have
+                }
+            }
     }
 
     fun region(id: String?): Region? =
@@ -250,15 +270,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _busy.value = true
             val error = try {
-                val links = SubscriptionClient.fetch(u)
+                val fetched = SubscriptionClient.fetch(u)
                 val existing = _subs.value.firstOrNull { it.url == u }
                 val sub = Subscription(
                     id = existing?.id ?: UUID.randomUUID().toString().take(8),
-                    name = name.trim().ifBlank { existing?.name ?: hostOf(u) },
+                    // Typed name > name the provider gave the profile > earlier name > host.
+                    name = name.trim().ifBlank { fetched.info?.title ?: existing?.name ?: hostOf(u) },
                     url = u,
                     updatedAt = System.currentTimeMillis(),
+                    info = fetched.info,
                 )
-                applySubscription(sub, links)
+                applySubscription(sub, fetched.links)
                 null
             } catch (e: Exception) {
                 e.message ?: "Couldn't download the subscription"
@@ -279,7 +301,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var failed = 0
             subs.forEach { sub ->
                 try {
-                    applySubscription(sub.copy(updatedAt = System.currentTimeMillis()), SubscriptionClient.fetch(sub.url))
+                    val fetched = SubscriptionClient.fetch(sub.url)
+                    applySubscription(sub.copy(updatedAt = System.currentTimeMillis(), info = fetched.info), fetched.links)
                     ok++
                 } catch (e: Exception) {
                     failed++

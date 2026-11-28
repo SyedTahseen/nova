@@ -54,4 +54,29 @@ data class Subscription(
     val name: String,
     val url: String,
     val updatedAt: Long,
+    /** What the provider told us about the plan (traffic, expiry, ...). Null if it sent nothing. */
+    val info: SubscriptionInfo? = null,
 )
+
+/**
+ * Plan details sent by the subscription server (Subscription-Userinfo, Profile-Title, ... headers
+ * or "#key: value" comment lines inside the list).
+ */
+data class SubscriptionInfo(
+    /** Bytes used so far (upload + download). */
+    val usedBytes: Long? = null,
+    /** Traffic limit in bytes; 0 = unlimited. */
+    val totalBytes: Long? = null,
+    /** Expiry as Unix seconds; 0 = never expires. */
+    val expireAt: Long? = null,
+    val title: String? = null,
+    val announce: String? = null,
+    val supportUrl: String? = null,
+    val webUrl: String? = null,
+    /** How often the provider wants the list refreshed, in hours. */
+    val updateHours: Int? = null,
+) {
+    /** True when there is something worth showing on a card. */
+    val hasPlanDetails: Boolean
+        get() = usedBytes != null || totalBytes != null || expireAt != null || !announce.isNullOrBlank()
+}
