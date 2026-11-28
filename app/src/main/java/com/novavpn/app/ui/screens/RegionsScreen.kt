@@ -104,7 +104,7 @@ import com.novavpn.app.ui.theme.NovaMenu
 
 private data class Confirm(val title: String, val message: String, val action: String, val run: () -> Unit)
 
-private data class Section(val title: String?, val items: List<Region>)
+private data class Section(val title: String?, val items: List<Region>, val subId: String? = null)
 
 private const val UNKNOWN_COUNTRY = "Unknown location"
 
@@ -134,6 +134,8 @@ fun RegionsScreen(
     var subError by remember { mutableStateOf<String?>(null) }
     var showManual by rememberSaveable { mutableStateOf(false) }
     var showScanner by rememberSaveable { mutableStateOf(false) }
+    // Subscriptions whose plan details are open.
+    var expandedSubs by remember { mutableStateOf(setOf<String>()) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
 
     // Closes the search field first; a second Back closes the screen (handled in NovaApp).
@@ -259,10 +261,6 @@ fun RegionsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (!searching && q.isEmpty()) {
-                // Plan details (traffic, expiry, notes) of each subscription that sent any.
-                subs.filter { it.info?.hasPlanDetails == true }.forEach { sub ->
-                    item(key = "subinfo-${sub.id}") { SubscriptionCard(sub) }
-                }
                 item { Banner(regions, onMoreRegions) }
                 item { Spacer(Modifier.height(4.dp)) }
             }
@@ -290,7 +288,19 @@ fun RegionsScreen(
 
             sections.forEach { section ->
                 if (section.title != null) {
-                    item(key = "header-${section.title}") { SectionHeader(section.title, section.items.size) }
+                    val sub = section.subId?.let { id -> subs.firstOrNull { it.id == id } }
+                    item(key = "header-${section.title}") {
+                        if (sub != null) {
+                            SubscriptionHeader(
+                                sub = sub,
+                                count = section.items.size,
+                                expanded = sub.id in expandedSubs,
+                                onToggle = { expandedSubs = if (sub.id in expandedSubs) expandedSubs - sub.id else expandedSubs + sub.id },
+                            )
+                        } else {
+                            SectionHeader(section.title, section.items.size)
+                        }
+                    }
                 }
                 items(section.items, key = { it.id }) { r -> ServerRow(r, Modifier.animateItem()) }
             }
@@ -394,11 +404,11 @@ private fun buildSections(
             }
             list.groupBy { title(it) }
                 .entries.sortedBy { e -> rank(e.value.first()) }
-                .map { Section(it.key, sorted(it.value)) }
+                .map { Section(it.key, sorted(it.value), it.value.first().subId) }
         }
     }
-    // A lone section doesn't need a heading.
-    return if (sections.size == 1) listOf(sections[0].copy(title = null)) else sections
+    // A lone section doesn't need a heading, unless it is a subscription (its heading opens the plan details).
+    return if (sections.size == 1 && sections[0].subId == null) listOf(sections[0].copy(title = null)) else sections
 }
 
 /** Everything the three-dot menu needs. */
