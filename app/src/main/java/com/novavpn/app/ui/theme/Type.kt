@@ -12,12 +12,13 @@ import androidx.compose.ui.unit.sp
  * Colour is deliberately not part of a style; pass it at the call site.
  */
 object NovaType {
-    val Display = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.SemiBold)   // big numbers (speed)
-    val Timer = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Bold)         // connection timer
+    val Display = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.SemiBold)   // big numbers (speed)
+    val Timer = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Bold)         // connection timer
     val Headline = TextStyle(fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.SemiBold)  // promo banner title
     val ScreenTitle = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
     val Title = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold)     // card titles
-    val Status = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium)      // "Connected"
+    val Status = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Medium)      // "Connected"
+    val CardTitle = TextStyle(fontSize = 17.sp)                                   // "Download" / "Upload" labels, speed unit
     val Heading = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold)   // section headings
     val Button = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     val ButtonBold = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)

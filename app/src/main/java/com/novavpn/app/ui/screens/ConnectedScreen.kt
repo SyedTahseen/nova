@@ -5,7 +5,6 @@ import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,8 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.ui.components.ChevronIcon
-import com.novavpn.app.ui.components.DialInk
-import com.novavpn.app.ui.components.PowerDial
+import com.novavpn.app.ui.components.OrbView
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.theme.Nova
@@ -117,44 +117,50 @@ fun ConnectedScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Tick ring + yellow disc with status + timer inside
-            Box(
-                Modifier.fillMaxWidth().height(330.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                PowerDial(Modifier.size(310.dp), live = live) {
-                    val statusColor by animateColorAsState(
-                        if (live) DialInk else DialInk.copy(alpha = 0.8f),
-                        tween(Motion.Long, easing = Motion.Standard), label = "statusColor",
-                    )
-                    AnimatedContent(
-                        targetState = statusText,
-                        transitionSpec = { statusTransition() },
-                        label = "statusText",
-                    ) { text ->
-                        Text(text, color = statusColor, style = NovaType.Status)
+            // Orb + status + timer. Takes all spare height; the orb's bottom edge rests on the location card.
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                val rimDiameter = minOf(maxWidth * 0.75f, maxHeight - 8.dp)
+                val orbSize = rimDiameter / 0.76f          // OrbView draws its rim at 76% of its size
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(y = orbSize * 0.12f)       // rim bottom = box bottom
+                        .requiredSize(orbSize),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    OrbView(Modifier.fillMaxSize(), speed = if (live) 1f else 4f)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val statusColor by animateColorAsState(
+                            if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
+                            tween(Motion.Long, easing = Motion.Standard), label = "statusColor",
+                        )
+                        AnimatedContent(
+                            targetState = statusText,
+                            transitionSpec = { statusTransition() },
+                            label = "statusText",
+                        ) { text ->
+                            Text(text, color = statusColor, style = NovaType.Status)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            formatElapsed(elapsedSec),
+                            color = Nova.White,
+                            style = NovaType.Timer,
+                            textAlign = TextAlign.Center,
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        formatElapsed(elapsedSec),
-                        color = DialInk,
-                        style = NovaType.Timer,
-                        textAlign = TextAlign.Center,
-                    )
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
             // Location card
-            val cardShape = NovaShapes.Pill
+            val cardShape = NovaShapes.Card
             Row(
                 Modifier
                     .fillMaxWidth()
                     .pressable(cardShape, Press.Card, onClick = onOpenRegions)
                     .background(Nova.Card.copy(alpha = 0.92f))
                     .border(1.dp, Nova.CardBorder, cardShape)
-                    .padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                    .padding(start = 32.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -165,13 +171,12 @@ fun ConnectedScreen(
                 )
                 Box(
                     Modifier
-                        .size(54.dp)
-                        .clip(NovaShapes.Control)
-                        .background(Nova.CardRaised)
-                        .border(1.dp, Nova.CardBorder, NovaShapes.Control),
+                        .size(70.dp)
+                        .clip(NovaShapes.Pill)
+                        .border(1.dp, Nova.CardBorder, NovaShapes.Pill),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChevronIcon(Nova.White, Modifier.size(22.dp))
+                    ChevronIcon(Nova.White, Modifier.size(28.dp))
                 }
             }
 
@@ -190,15 +195,15 @@ fun ConnectedScreen(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(4.dp))
 
             // Speed cards
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 SpeedCard("Download", speed.downMbps, DOWN_STEPS, Modifier.weight(1f))
                 SpeedCard("Upload", speed.upMbps, UP_STEPS, Modifier.weight(1f))
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(18.dp))
 
             SlideToggle(
                 label = "Disconnect",
@@ -217,21 +222,21 @@ private val UP_STEPS = floatArrayOf(2f, 8f, 15f, 30f, 60f)
 
 @Composable
 private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: Modifier) {
-    val shape = NovaShapes.Pill
+    val shape = NovaShapes.Card
     Column(
         modifier
             .clip(shape)
             .background(Nova.Card.copy(alpha = 0.92f))
             .border(1.dp, Nova.CardBorder, shape)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 11.dp, bottom = 16.dp),
     ) {
-        Text(title, color = Nova.TextMuted, style = NovaType.Caption, modifier = Modifier.padding(start = 2.dp))
-        Spacer(Modifier.height(10.dp))
+        Text(title, color = Nova.TextMuted, style = NovaType.CardTitle, modifier = Modifier.padding(start = 2.dp))
+        Spacer(Modifier.height(29.dp))
 
         val level = if (mbps < 0.05f) -1 else steps.indexOfFirst { mbps <= it }.let { if (it == -1) 4 else it }
         SpeedBars(level)
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(26.dp))
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(start = 2.dp)) {
             Text(
                 formatSpeed(mbps),
@@ -241,26 +246,28 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
             Text(
                 " mb/s",
                 color = Nova.TextMuted,
-                style = NovaType.Body,
-                modifier = Modifier.padding(bottom = 7.dp),
+                style = NovaType.CardTitle,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
         }
     }
 }
 
-/** Five rounded bars with a hatched strip above each; the bar for the current speed band lights up. */
+/** Resting heights of the five bars (dp), measured from the design – they are not all the same. */
+private val BAR_HEIGHTS = floatArrayOf(37f, 32f, 37f, 33f, 40f)
+
+/** Five rounded bars of different heights with a hatched strip above each; the bar for the current speed band lights up. */
 @Composable
 private fun SpeedBars(level: Int) {
     Row(
-        Modifier.fillMaxWidth().height(62.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        Modifier.fillMaxWidth().height(58.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for (i in 0 until 5) {
             val lit = i == level
-            val lift by animateFloatAsState(if (lit) 1f else 0f, tween(Motion.Medium, easing = Motion.Standard), label = "lift$i")
             Box(Modifier.weight(1f).fillMaxSize()) {
-                // hatch strip
-                Canvas(Modifier.fillMaxWidth().height(22.dp).align(Alignment.TopCenter)) {
+                // hatch strip (its lower part is hidden behind the bar)
+                Canvas(Modifier.fillMaxWidth().height(26.dp).align(Alignment.TopCenter)) {
                     val r = 5.dp.toPx()
                     val clip = Path().apply {
                         addRoundRect(
@@ -283,16 +290,15 @@ private fun SpeedBars(level: Int) {
                         }
                     }
                 }
-                // bar
+                // bar – bottoms are aligned; the lit one only changes colour and glows
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .offset(y = (-6 * lift).dp)
                         .fillMaxWidth()
-                        .height(34.dp)
+                        .height(BAR_HEIGHTS[i].dp)
                         .then(
                             if (lit) Modifier.shadow(
-                                12.dp, NovaShapes.Small,
+                                14.dp, NovaShapes.Small,
                                 ambientColor = Nova.Lime, spotColor = Nova.Lime,
                             ) else Modifier,
                         )

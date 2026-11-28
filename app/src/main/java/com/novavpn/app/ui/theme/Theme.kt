@@ -33,7 +33,7 @@ object Nova {
     val BannerBase = Color(0xFF0C0C0D)
     val BannerTint = Color(0xFF1A1F00)
     val BarTrack = Color(0xFF2A2A2E)
-    val BarOff = Color(0xFF2E2E33)
+    val BarOff = Color(0xFF414149)
     val IconMuted = Color(0xFFB4B4BA)
 
     // Map
