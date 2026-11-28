@@ -14,7 +14,10 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,7 +68,6 @@ import com.google.mlkit.vision.common.InputImage
 import com.novavpn.app.ui.components.AlbumIcon
 import com.novavpn.app.ui.components.CloseIcon
 import com.novavpn.app.ui.components.FlashIcon
-import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
@@ -209,7 +211,7 @@ private fun ScannerContent(onResult: (String) -> Unit, onClose: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (hasCamera) {
                     ScannerButton(
-                        label = if (torchOn) "Flash on" else "Flash",
+                        label = "Flash",
                         selected = torchOn,
                         enabled = hasFlash,
                         onClick = { torchOn = !torchOn },
@@ -235,12 +237,16 @@ private fun ScannerButton(
     icon: (@Composable () -> Unit)? = null,
 ) {
     val shape = NovaShapes.Pill
+    // Fully opaque in every state (the camera must not show through); selected = lime-tinted fill + lime outline.
+    val fill by animateColorAsState(if (selected) Color(0xFF292C1C) else Nova.Pill, tween(Motion.Short), label = "btnFill")
+    val outline by animateColorAsState(if (selected) Nova.Lime else Nova.PillBorder, tween(Motion.Short), label = "btnBorder")
     Row(
         modifier
             .height(48.dp)
             // pressedScale = 1f: no size change on press, the colour change shows the state
             .pressable(shape, 1f, enabled = enabled, label = label, onClick = onClick)
-            .chipSurface(shape, selected)
+            .background(fill)
+            .border(1.dp, outline, shape)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
