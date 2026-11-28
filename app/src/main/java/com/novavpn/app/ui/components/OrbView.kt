@@ -58,10 +58,10 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         // Body
         drawCircle(
             brush = Brush.radialGradient(
-                0f to Color(0xFF262E00),
-                0.5f to Color(0xFF6E8400),
-                0.86f to Color(0xFFD0EC00),
-                1f to Color(0xFFF1FF7A),
+                0f to Nova.OrbDeep,
+                0.5f to Nova.OrbMid,
+                0.86f to Nova.OrbBright,
+                1f to Nova.OrbGlow,
                 center = c,
                 radius = r,
             ),

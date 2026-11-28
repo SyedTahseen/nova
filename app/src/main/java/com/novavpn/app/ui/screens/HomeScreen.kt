@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.screens
 
+import com.novavpn.app.ui.theme.NovaShapes
+import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.HamburgerIcon
+import com.novavpn.app.ui.components.EmptyStateCard
 import com.novavpn.app.ui.components.PILL_OVERLAY_ALPHA
 import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.components.SlideDirection
@@ -80,13 +83,20 @@ fun HomeScreen(
                 Text(
                     text = error,
                     color = Nova.Red,
-                    fontSize = 13.sp,
+                    style = NovaType.Caption,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )
             }
 
             if (selected == null) {
-                AddServerCard(onClick = onAddServer, modifier = Modifier.padding(horizontal = 16.dp))
+                EmptyStateCard(
+                    title = "No servers yet",
+                    message = "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
+                    actionLabel = "Add server",
+                    onAction = onAddServer,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    overlay = true,
+                )
             } else {
             val listState = rememberLazyListState()
             val index = regions.indexOfFirst { it.id == selected?.id }.coerceAtLeast(0)
@@ -125,7 +135,7 @@ fun HomeScreen(
 /** Hamburger pill pinned to the top-left of Home; opens Settings. */
 @Composable
 private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = NovaShapes.Pill
     Box(
         modifier
             .size(width = 64.dp, height = 48.dp)
@@ -139,7 +149,7 @@ private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = NovaShapes.Pill
     Row(
         Modifier
             .height(48.dp)
@@ -152,8 +162,7 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
         Text(
             text = region.label,
             color = if (selected) Nova.Lime else Nova.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Normal,
+            style = NovaType.Secondary,
             modifier = Modifier.padding(start = 12.dp),
         )
     }
@@ -175,33 +184,3 @@ fun FlagBadge(code: String, size: Int, modifier: Modifier = Modifier) {
     }
 }
 
-/** Shown instead of the connect slider while there are no servers. */
-@Composable
-private fun AddServerCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(28.dp)
-    Column(
-        modifier
-            .fillMaxWidth()
-            .chipSurface(shape, fillAlpha = PILL_OVERLAY_ALPHA)
-            .padding(20.dp),
-    ) {
-        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location come from the proxy name, e.g. Germany.",
-            color = Nova.TextMuted,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
-        )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Nova.Lime)
-                .clickable(role = Role.Button, onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}

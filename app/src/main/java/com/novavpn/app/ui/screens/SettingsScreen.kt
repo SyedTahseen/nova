@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.screens
 
+import com.novavpn.app.ui.theme.NovaShapes
+import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.ui.components.ChevronIcon
+import com.novavpn.app.ui.components.NovaIconPill
+import com.novavpn.app.ui.components.SectionLabel
 import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.theme.Nova
 
@@ -55,47 +59,29 @@ fun SettingsScreen(
     ) {
         // Header: back pill + title
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val pill = RoundedCornerShape(24.dp)
-            Box(
-                Modifier
-                    .size(width = 64.dp, height = 48.dp)
-                    .chipSurface(pill)
-                    .clickable(onClickLabel = "Back", role = Role.Button, onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
+            NovaIconPill(onClick = onBack, label = "Back", width = 64.dp) {
                 ChevronIcon(Nova.White, Modifier.size(22.dp), left = true)
             }
             Text(
                 "Settings",
                 color = Nova.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = NovaType.ScreenTitle,
                 modifier = Modifier.padding(start = 16.dp),
             )
         }
 
-        Text(
-            "Connection",
-            color = Nova.TextMuted,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(start = 4.dp, top = 14.dp),
-        )
+        SectionLabel("Connection")
         SettingsRow("Regions", "Choose a server location", onClick = onOpenRegions)
         SettingsRow("Test server speed", "Re-check ping for every region", onClick = onRefreshPings)
 
-        Text(
-            "About",
-            color = Nova.TextMuted,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(start = 4.dp, top = 14.dp),
-        )
+        SectionLabel("About")
         SettingsRow("Nova VPN", "Version $version", onClick = null)
     }
 }
 
 @Composable
 private fun SettingsRow(title: String, subtitle: String, onClick: (() -> Unit)?) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = NovaShapes.Pill
     Row(
         Modifier
             .fillMaxWidth()
@@ -107,8 +93,8 @@ private fun SettingsRow(title: String, subtitle: String, onClick: (() -> Unit)?)
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Nova.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = Nova.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(title, color = Nova.White, style = NovaType.BodyStrong)
+            Text(subtitle, color = Nova.TextMuted, style = NovaType.Caption, modifier = Modifier.padding(top = 2.dp))
         }
         if (onClick != null) ChevronIcon(Nova.TextMuted, Modifier.size(20.dp))
     }

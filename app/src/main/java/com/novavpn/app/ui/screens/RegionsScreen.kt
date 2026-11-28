@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.screens
 
+import com.novavpn.app.ui.theme.NovaShapes
+import com.novavpn.app.ui.theme.NovaType
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -71,6 +73,16 @@ import com.novavpn.app.MainViewModel
 import com.novavpn.app.SortMode
 import com.novavpn.app.core.ManualServer
 import com.novavpn.app.data.Region
+import com.novavpn.app.ui.components.EmptyStateCard
+import com.novavpn.app.ui.components.NovaChipRow
+import com.novavpn.app.ui.components.NovaDialog
+import com.novavpn.app.ui.components.NovaFieldLabel
+import com.novavpn.app.ui.components.NovaIconPill
+import com.novavpn.app.ui.components.NovaMenuBack
+import com.novavpn.app.ui.components.NovaMenuItem
+import com.novavpn.app.ui.components.NovaSubMenuItem
+import com.novavpn.app.ui.components.NovaTextField
+import com.novavpn.app.ui.components.SectionHeader
 import com.novavpn.app.ui.components.CheckIcon
 import com.novavpn.app.ui.components.ChevronIcon
 import com.novavpn.app.ui.components.CloseIcon
@@ -242,13 +254,21 @@ fun RegionsScreen(
             }
 
             if (regions.isEmpty()) {
-                item { EmptyState(onAdd = { showManual = true }) }
+                item {
+                    EmptyStateCard(
+                        title = "No servers yet",
+                        message = "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
+                        actionLabel = "Add server",
+                        onAction = { showManual = true },
+                        modifier = Modifier.padding(top = 24.dp),
+                    )
+                }
             } else if (filtered.isEmpty()) {
                 item {
                     Text(
                         "No servers match \"${query.trim()}\"",
                         color = Nova.TextMuted,
-                        fontSize = 15.sp,
+                        style = NovaType.Body,
                         modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
                     )
                 }
@@ -256,7 +276,7 @@ fun RegionsScreen(
 
             sections.forEach { section ->
                 if (section.title != null) {
-                    item(key = "header-${section.title}") { GroupHeader(section.title, section.items.size) }
+                    item(key = "header-${section.title}") { SectionHeader(section.title, section.items.size) }
                 }
                 items(section.items, key = { it.id }) { r -> ServerRow(r) }
             }
@@ -295,10 +315,9 @@ fun RegionsScreen(
     }
 
     confirm?.let { c ->
-        AlertDialog(
+        NovaDialog(
             onDismissRequest = { confirm = null },
-            containerColor = Nova.CardRaised,
-            title = { Text(c.title, color = Nova.White) },
+            title = c.title,
             text = { Text(c.message, color = Nova.TextMuted) },
             confirmButton = {
                 TextButton(onClick = { c.run(); confirm = null }) { Text(c.action, color = Nova.Red) }
@@ -360,23 +379,6 @@ private fun buildSections(
     return if (sections.size == 1) listOf(sections[0].copy(title = null)) else sections
 }
 
-@Composable
-private fun GroupHeader(title: String, count: Int) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            title,
-            color = Nova.White,
-            fontSize = 19.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        Text("$count", color = Nova.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
-    }
-}
-
 /** Everything the three-dot menu needs. */
 private class MoreMenu(
     val sort: SortMode,
@@ -413,7 +415,7 @@ private fun RegionsHeader(
     onQr: () -> Unit,
     onManual: () -> Unit,
 ) {
-    val pill = RoundedCornerShape(24.dp)
+    val pill = NovaShapes.Pill
     var moreOpen by remember { mutableStateOf(false) }
     // Which page of the three-dot menu is showing: "root", "sort", "group" or "delete".
     var page by remember { mutableStateOf("root") }
@@ -439,12 +441,12 @@ private fun RegionsHeader(
             ) {
                 SearchIcon(Nova.TextMuted, Modifier.size(20.dp))
                 Box(Modifier.weight(1f).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) Text("Search regions", color = Nova.TextMuted, fontSize = 15.sp)
+                    if (query.isEmpty()) Text("Search regions", color = Nova.TextMuted, style = NovaType.Body)
                     BasicTextField(
                         value = query,
                         onValueChange = onQueryChange,
                         singleLine = true,
-                        textStyle = TextStyle(color = Nova.White, fontSize = 15.sp),
+                        textStyle = NovaType.Body.copy(color = Nova.White),
                         cursorBrush = SolidColor(Nova.Lime),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -463,29 +465,28 @@ private fun RegionsHeader(
             Text(
                 "Regions",
                 color = Nova.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = NovaType.ScreenTitle,
                 modifier = Modifier.weight(1f).padding(start = 4.dp),
             )
-            HeaderPill(onClick = onOpenSearch, label = "Search") { SearchIcon(Nova.White) }
+            NovaIconPill(onClick = onOpenSearch, label = "Search") { SearchIcon(Nova.White) }
 
             Box {
-                HeaderPill(onClick = { addOpen = true }, label = "Add server") { PlusIcon(Nova.White) }
+                NovaIconPill(onClick = { addOpen = true }, label = "Add server") { PlusIcon(Nova.White) }
                 DropdownMenu(
                     expanded = addOpen,
                     onDismissRequest = { addOpen = false },
                     containerColor = Nova.CardRaised,
                 ) {
-                    MenuItem("Subscription URL") { addOpen = false; onSubscription() }
-                    MenuItem("Import from clipboard") { addOpen = false; onClipboard() }
-                    MenuItem("Scan QR code") { addOpen = false; onQr() }
-                    MenuItem("Manual input") { addOpen = false; onManual() }
+                    NovaMenuItem("Subscription URL") { addOpen = false; onSubscription() }
+                    NovaMenuItem("Import from clipboard") { addOpen = false; onClipboard() }
+                    NovaMenuItem("Scan QR code") { addOpen = false; onQr() }
+                    NovaMenuItem("Manual input") { addOpen = false; onManual() }
                 }
             }
         }
 
         Box {
-            HeaderPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
+            NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             DropdownMenu(
                 expanded = moreOpen,
                 onDismissRequest = { moreOpen = false; page = "root" },
@@ -495,101 +496,48 @@ private fun RegionsHeader(
 
                 when (page) {
                     "sort" -> {
-                        BackItem("Sort") { page = "root" }
-                        MenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
-                        MenuItem("Fastest first", checked = menu.sort == SortMode.Ping, onClick = close { menu.onSort(SortMode.Ping) })
-                        MenuItem("Name A–Z", checked = menu.sort == SortMode.Name, onClick = close { menu.onSort(SortMode.Name) })
+                        NovaMenuBack("Sort") { page = "root" }
+                        NovaMenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
+                        NovaMenuItem("Fastest first", checked = menu.sort == SortMode.Ping, onClick = close { menu.onSort(SortMode.Ping) })
+                        NovaMenuItem("Name A–Z", checked = menu.sort == SortMode.Name, onClick = close { menu.onSort(SortMode.Name) })
                     }
 
                     "group" -> {
-                        BackItem("Group by") { page = "root" }
-                        MenuItem("Source", checked = menu.groupMode == GroupMode.Source, onClick = close { menu.onGroup(GroupMode.Source) })
-                        MenuItem("Country", checked = menu.groupMode == GroupMode.Country, onClick = close { menu.onGroup(GroupMode.Country) })
-                        MenuItem("Protocol", checked = menu.groupMode == GroupMode.Protocol, onClick = close { menu.onGroup(GroupMode.Protocol) })
-                        MenuItem("No grouping", checked = menu.groupMode == GroupMode.None, onClick = close { menu.onGroup(GroupMode.None) })
+                        NovaMenuBack("Group by") { page = "root" }
+                        NovaMenuItem("Source", checked = menu.groupMode == GroupMode.Source, onClick = close { menu.onGroup(GroupMode.Source) })
+                        NovaMenuItem("Country", checked = menu.groupMode == GroupMode.Country, onClick = close { menu.onGroup(GroupMode.Country) })
+                        NovaMenuItem("Protocol", checked = menu.groupMode == GroupMode.Protocol, onClick = close { menu.onGroup(GroupMode.Protocol) })
+                        NovaMenuItem("No grouping", checked = menu.groupMode == GroupMode.None, onClick = close { menu.onGroup(GroupMode.None) })
                     }
 
                     "delete" -> {
-                        BackItem("Delete") { page = "root" }
+                        NovaMenuBack("Delete") { page = "root" }
                         if (menu.unreachable > 0) {
-                            MenuItem("Unreachable (${menu.unreachable})", color = Nova.Red, onClick = close(menu.onDeleteUnreachable))
+                            NovaMenuItem("Unreachable (${menu.unreachable})", color = Nova.Red, onClick = close(menu.onDeleteUnreachable))
                         }
                         if (menu.duplicates > 0) {
-                            MenuItem("Duplicates (${menu.duplicates})", color = Nova.Red, onClick = close(menu.onDeleteDuplicates))
+                            NovaMenuItem("Duplicates (${menu.duplicates})", color = Nova.Red, onClick = close(menu.onDeleteDuplicates))
                         }
                         if (menu.manual > 0) {
-                            MenuItem("Manual servers (${menu.manual})", color = Nova.Red, onClick = close(menu.onDeleteManual))
+                            NovaMenuItem("Manual servers (${menu.manual})", color = Nova.Red, onClick = close(menu.onDeleteManual))
                         }
                         if (menu.subscriptions > 0) {
-                            MenuItem("Subscriptions (${menu.subscriptions})", color = Nova.Red, onClick = close(menu.onDeleteSubs))
+                            NovaMenuItem("Subscriptions (${menu.subscriptions})", color = Nova.Red, onClick = close(menu.onDeleteSubs))
                         }
-                        MenuItem("All my servers", color = Nova.Red, onClick = close(menu.onDeleteAll))
+                        NovaMenuItem("All my servers", color = Nova.Red, onClick = close(menu.onDeleteAll))
                     }
 
                     else -> {
-                        MenuItem("Test all servers", onClick = close(menu.onTestAll))
-                        if (menu.hasSubs) MenuItem("Update subscriptions", onClick = close(menu.onUpdateSubs))
-                        SubMenuItem("Sort") { page = "sort" }
-                        SubMenuItem("Group by") { page = "group" }
-                        if (menu.custom > 0) SubMenuItem("Delete", color = Nova.Red) { page = "delete" }
+                        NovaMenuItem("Test all servers", onClick = close(menu.onTestAll))
+                        if (menu.hasSubs) NovaMenuItem("Update subscriptions", onClick = close(menu.onUpdateSubs))
+                        NovaSubMenuItem("Sort") { page = "sort" }
+                        NovaSubMenuItem("Group by") { page = "group" }
+                        if (menu.custom > 0) NovaSubMenuItem("Delete", color = Nova.Red) { page = "delete" }
                     }
                 }
             }
         }
     }
-}
-
-/** Menu row that opens a sub page; shows a chevron on the right. */
-@Composable
-private fun SubMenuItem(text: String, color: Color = Nova.White, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(text, color = color, fontSize = 15.sp) },
-        trailingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp)) },
-        onClick = onClick,
-    )
-}
-
-/** First row of a sub page: tap to go back to the main menu. */
-@Composable
-private fun BackItem(title: String, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(title, color = Nova.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) },
-        leadingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp), left = true) },
-        onClick = onClick,
-    )
-}
-
-@Composable
-private fun MenuLabel(text: String) {
-    Text(
-        text.uppercase(),
-        color = Nova.TextMuted,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
-    )
-}
-
-@Composable
-private fun ChipRow(options: List<String>, selected: String, onSelect: (String) -> Unit) {
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        options.forEach { o ->
-            val sel = o == selected
-            Box(
-                Modifier
-                    .height(36.dp)
-                    .chipSurface(RoundedCornerShape(18.dp), sel)
-                    .clickable { onSelect(o) }
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text(o, color = if (sel) Nova.Lime else Nova.White, fontSize = 13.sp) }
-        }
-    }
-}
-
-@Composable
-private fun FieldLabel(text: String) {
-    Text(text, color = Nova.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
 }
 
 @Composable
@@ -603,24 +551,23 @@ private fun SubscriptionDialog(
     onDismiss: () -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
+    NovaDialog(
         onDismissRequest = onDismiss,
-        containerColor = Nova.CardRaised,
-        title = { Text("Add subscription", color = Nova.White) },
+        title = "Add subscription",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "Paste the subscription URL from your provider. Its servers are added as a group and can be updated later.",
                     color = Nova.TextMuted,
-                    fontSize = 14.sp,
+                    style = NovaType.Secondary,
                 )
-                DialogField(url, onUrlChange, "https://…", singleLine = false, keyboardType = KeyboardType.Uri)
-                DialogField(name, { name = it }, "Name (optional)", singleLine = true, keyboardType = KeyboardType.Text)
+                NovaTextField(url, onUrlChange, "https://…", singleLine = false, keyboardType = KeyboardType.Uri)
+                NovaTextField(name, { name = it }, "Name (optional)", singleLine = true, keyboardType = KeyboardType.Text)
                 TextButton(onClick = { onUrlChange(onPaste()) }, enabled = !busy) {
                     Text("Paste from clipboard", color = Nova.Lime)
                 }
-                if (busy) Text("Downloading…", color = Nova.TextMuted, fontSize = 13.sp)
-                error?.let { Text(it, color = Nova.Red, fontSize = 13.sp) }
+                if (busy) Text("Downloading…", color = Nova.TextMuted, style = NovaType.Caption)
+                error?.let { Text(it, color = Nova.Red, style = NovaType.Caption) }
             }
         },
         confirmButton = {
@@ -649,27 +596,26 @@ private fun ManualDialog(
     val transportProtocol = f.protocol == "VLESS" || f.protocol == "VMess" || f.protocol == "Trojan"
     val securities = if (f.protocol == "VMess") listOf("none", "tls") else listOf("none", "tls", "reality")
 
-    AlertDialog(
+    NovaDialog(
         onDismissRequest = onDismiss,
-        containerColor = Nova.CardRaised,
-        title = { Text("Manual input", color = Nova.White) },
+        title = "Manual input",
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ChipRow(listOf("Link", "Fields"), tab) { tab = it; error = null }
+                NovaChipRow(listOf("Link", "Fields"), tab) { tab = it; error = null }
 
                 if (tab == "Link") {
                     Text(
                         "Paste a vless, vmess, trojan, ss, socks or wireguard link.",
                         color = Nova.TextMuted,
-                        fontSize = 14.sp,
+                        style = NovaType.Secondary,
                     )
-                    DialogField(link, { link = it; error = null }, "vless://, vmess://, trojan://, ss://…", false, KeyboardType.Uri)
-                    DialogField(linkName, { linkName = it }, "Name (optional)", true, KeyboardType.Text)
+                    NovaTextField(link, { link = it; error = null }, "vless://, vmess://, trojan://, ss://…", false, KeyboardType.Uri)
+                    NovaTextField(linkName, { linkName = it }, "Name (optional)", true, KeyboardType.Text)
                     TextButton(onClick = { link = onPaste(); error = null }) {
                         Text("Paste from clipboard", color = Nova.Lime)
                     }
                 } else {
-                    ChipRow(protocols, f.protocol) { p ->
+                    NovaChipRow(protocols, f.protocol) { p ->
                         f = f.copy(
                             protocol = p,
                             network = "tcp",
@@ -678,39 +624,39 @@ private fun ManualDialog(
                         )
                         error = null
                     }
-                    DialogField(f.name, { f = f.copy(name = it) }, "Name, e.g. Germany", true, KeyboardType.Text)
-                    DialogField(f.host, { f = f.copy(host = it); error = null }, "Address", true, KeyboardType.Uri)
-                    DialogField(f.port, { f = f.copy(port = it); error = null }, "Port", true, KeyboardType.Number)
+                    NovaTextField(f.name, { f = f.copy(name = it) }, "Name, e.g. Germany", true, KeyboardType.Text)
+                    NovaTextField(f.host, { f = f.copy(host = it); error = null }, "Address", true, KeyboardType.Uri)
+                    NovaTextField(f.port, { f = f.copy(port = it); error = null }, "Port", true, KeyboardType.Number)
 
                     val secretHint = when (f.protocol) {
                         "VLESS", "VMess" -> "User ID (UUID)"
                         else -> "Password"
                     }
-                    DialogField(f.secret, { f = f.copy(secret = it); error = null }, secretHint, true, KeyboardType.Text)
+                    NovaTextField(f.secret, { f = f.copy(secret = it); error = null }, secretHint, true, KeyboardType.Text)
 
                     when {
                         f.protocol == "Shadowsocks" -> {
-                            FieldLabel("Cipher")
-                            ChipRow(
+                            NovaFieldLabel("Cipher")
+                            NovaChipRow(
                                 listOf("aes-256-gcm", "aes-128-gcm", "chacha20-ietf-poly1305"),
                                 f.cipher,
                             ) { f = f.copy(cipher = it) }
                         }
 
                         f.protocol == "SOCKS" -> {
-                            DialogField(f.username, { f = f.copy(username = it) }, "Username (optional)", true, KeyboardType.Text)
+                            NovaTextField(f.username, { f = f.copy(username = it) }, "Username (optional)", true, KeyboardType.Text)
                         }
 
                         transportProtocol -> {
-                            FieldLabel("Transport")
-                            ChipRow(listOf("tcp", "ws", "grpc", "xhttp"), f.network) { f = f.copy(network = it) }
-                            FieldLabel("Security")
-                            ChipRow(securities, f.security) { f = f.copy(security = it); error = null }
+                            NovaFieldLabel("Transport")
+                            NovaChipRow(listOf("tcp", "ws", "grpc", "xhttp"), f.network) { f = f.copy(network = it) }
+                            NovaFieldLabel("Security")
+                            NovaChipRow(securities, f.security) { f = f.copy(security = it); error = null }
                             if (f.security != "none") {
-                                DialogField(f.sni, { f = f.copy(sni = it) }, "SNI / host", true, KeyboardType.Uri)
+                                NovaTextField(f.sni, { f = f.copy(sni = it) }, "SNI / host", true, KeyboardType.Uri)
                             }
                             if (f.network != "tcp") {
-                                DialogField(
+                                NovaTextField(
                                     f.path,
                                     { f = f.copy(path = it) },
                                     if (f.network == "grpc") "Service name" else "Path, e.g. /ws",
@@ -719,19 +665,19 @@ private fun ManualDialog(
                                 )
                             }
                             if (f.security == "reality") {
-                                DialogField(f.publicKey, { f = f.copy(publicKey = it); error = null }, "Reality public key", true, KeyboardType.Text)
-                                DialogField(f.shortId, { f = f.copy(shortId = it) }, "Short ID (optional)", true, KeyboardType.Text)
+                                NovaTextField(f.publicKey, { f = f.copy(publicKey = it); error = null }, "Reality public key", true, KeyboardType.Text)
+                                NovaTextField(f.shortId, { f = f.copy(shortId = it) }, "Short ID (optional)", true, KeyboardType.Text)
                             }
                             if (f.protocol == "VLESS" && f.network == "tcp" && f.security != "none") {
-                                FieldLabel("Flow")
-                                ChipRow(listOf("none", "xtls-rprx-vision"), if (f.vision) "xtls-rprx-vision" else "none") {
+                                NovaFieldLabel("Flow")
+                                NovaChipRow(listOf("none", "xtls-rprx-vision"), if (f.vision) "xtls-rprx-vision" else "none") {
                                     f = f.copy(vision = it != "none")
                                 }
                             }
                         }
                     }
                 }
-                error?.let { Text(it, color = Nova.Red, fontSize = 13.sp) }
+                error?.let { Text(it, color = Nova.Red, style = NovaType.Caption) }
             }
         },
         confirmButton = {
@@ -752,88 +698,8 @@ private fun ManualDialog(
 }
 
 @Composable
-private fun EmptyState(onAdd: () -> Unit) {
-    val shape = RoundedCornerShape(28.dp)
-    Column(
-        Modifier.fillMaxWidth().padding(top = 24.dp).chipSurface(shape).padding(20.dp),
-    ) {
-        Text("No servers yet", color = Nova.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Add a vless, vmess, trojan, ss, socks or wireguard link. The flag and location are taken from the proxy name, e.g. Germany.",
-            color = Nova.TextMuted,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
-        )
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Nova.Lime)
-                .clickable(role = Role.Button, onClick = onAdd),
-            contentAlignment = Alignment.Center,
-        ) { Text("Add server", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
-    }
-}
-
-@Composable
-private fun HeaderPill(onClick: () -> Unit, label: String, icon: @Composable () -> Unit) {
-    Box(
-        Modifier
-            .size(width = 52.dp, height = 48.dp)
-            .chipSurface(RoundedCornerShape(24.dp))
-            .clickable(onClickLabel = label, role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon() }
-    }
-}
-
-@Composable
-private fun MenuItem(text: String, checked: Boolean = false, color: Color = Nova.White, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(text, color = color, fontSize = 15.sp) },
-        trailingIcon = if (checked) {
-            { CheckIcon(Nova.Lime, Modifier.size(18.dp)) }
-        } else null,
-        onClick = onClick,
-    )
-}
-
-@Composable
-private fun DialogField(
-    value: String,
-    onChange: (String) -> Unit,
-    placeholder: String,
-    singleLine: Boolean,
-    keyboardType: KeyboardType,
-) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Nova.Card)
-            .border(1.dp, Nova.CardBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-    ) {
-        if (value.isEmpty()) Text(placeholder, color = Nova.TextMuted, fontSize = 14.sp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = singleLine,
-            maxLines = if (singleLine) 1 else 4,
-            textStyle = TextStyle(color = Nova.White, fontSize = 14.sp),
-            cursorBrush = SolidColor(Nova.Lime),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-@Composable
 private fun Banner(regions: List<Region>, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(26.dp)
+    val shape = NovaShapes.Card
     Box(
         Modifier
             .fillMaxWidth()
@@ -841,8 +707,8 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
-                    0f to Color(0xFF0C0C0D),
-                    1f to Color(0xFF1A1F00),
+                    0f to Nova.BannerBase,
+                    1f to Nova.BannerTint,
                 ),
             )
             .clickable(onClick = onClick),
@@ -858,9 +724,7 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         Text(
             "Need more\nregions?",
             color = Nova.White,
-            fontSize = 29.sp,
-            lineHeight = 32.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = NovaType.Headline,
             modifier = Modifier.align(Alignment.TopStart).padding(start = 13.dp, top = 12.dp),
         )
 
@@ -869,7 +733,7 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
                 .align(Alignment.TopEnd)
                 .padding(12.dp)
                 .size(65.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .clip(NovaShapes.Pill)
                 .background(Nova.White),
             contentAlignment = Alignment.Center,
         ) {
@@ -885,7 +749,7 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
                 flags.forEachIndexed { i, code ->
                     FlagBadge(
                         code, 28,
-                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                        Modifier.offset(x = (i * 22).dp).border(1.5.dp, Nova.BannerBase, CircleShape),
                     )
                 }
                 Box(
@@ -894,14 +758,14 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(Nova.White)
-                        .border(1.5.dp, Color(0xFF0C0C0D), CircleShape),
+                        .border(1.5.dp, Nova.BannerBase, CircleShape),
                     contentAlignment = Alignment.Center,
-                ) { Text("+", color = Nova.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                ) { Text("+", color = Nova.Black, style = NovaType.ButtonBold) }
             }
             Text(
                 "Europe, USA, Canada",
                 color = Nova.TextMuted,
-                fontSize = 15.sp,
+                style = NovaType.Body,
                 modifier = Modifier.padding(start = 20.dp),
             )
         }
@@ -918,7 +782,7 @@ private fun RegionRow(
     onCopy: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = NovaShapes.Pill
     val bg = if (selected) Nova.Lime else Nova.Card
     var menuOpen by remember { mutableStateOf(false) }
     val hasMenu = onCopy != null || onDelete != null
@@ -942,19 +806,18 @@ private fun RegionRow(
             Text(
                 region.label,
                 color = if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
+                style = NovaType.Secondary,
                 modifier = Modifier.weight(1f),
             )
             if (pingMs != null) {
                 Text(
                     "$pingMs ms",
                     color = if (selected) Nova.Black.copy(alpha = 0.7f) else Nova.TextMuted,
-                    fontSize = 12.sp,
+                    style = NovaType.Small,
                     modifier = Modifier.padding(end = 10.dp),
                 )
             }
-            val btnShape = RoundedCornerShape(18.dp)
+            val btnShape = NovaShapes.Control
             Box(
                 Modifier
                     .size(54.dp)
@@ -978,8 +841,8 @@ private fun RegionRow(
                 containerColor = Nova.CardRaised,
                 offset = androidx.compose.ui.unit.DpOffset(16.dp, 0.dp),
             ) {
-                onCopy?.let { MenuItem("Copy link") { menuOpen = false; it() } }
-                onDelete?.let { MenuItem("Delete", color = Nova.Red) { menuOpen = false; it() } }
+                onCopy?.let { NovaMenuItem("Copy link") { menuOpen = false; it() } }
+                onDelete?.let { NovaMenuItem("Delete", color = Nova.Red) { menuOpen = false; it() } }
             }
         }
     }

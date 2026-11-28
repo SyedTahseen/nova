@@ -23,6 +23,19 @@ object Nova {
     val Green = Color(0xFF9BE15D)
     val Gray = Color(0xFF5A5A60)
 
+    // Decorative gradients (orb, banner, glow) and small UI details
+    val OrbDeep = Color(0xFF262E00)
+    val OrbMid = Color(0xFF6E8400)
+    val OrbBright = Color(0xFFD0EC00)
+    val OrbGlow = Color(0xFFF1FF7A)
+    val GlowTop = Color(0xFF3A4200)
+    val GlowMid = Color(0xFF141800)
+    val BannerBase = Color(0xFF0C0C0D)
+    val BannerTint = Color(0xFF1A1F00)
+    val BarTrack = Color(0xFF2A2A2E)
+    val BarOff = Color(0xFF2E2E33)
+    val IconMuted = Color(0xFFB4B4BA)
+
     // Map
     val Ocean = Color(0xFF0A0A0B)
     val Land = Color(0xFF1D1D20)
@@ -40,7 +53,14 @@ fun NovaTheme(content: @Composable () -> Unit) {
             onBackground = Nova.White,
             surface = Nova.Card,
             onSurface = Nova.White,
+            surfaceVariant = Nova.CardRaised,
+            onSurfaceVariant = Nova.TextMuted,
+            outline = Nova.CardBorder,
+            error = Nova.Red,
+            onError = Nova.Black,
         ),
+        // Typography and shapes are deliberately left at the Material defaults: our own UI uses
+        // NovaType / NovaShapes, and dialogs/menus keep their standard Material look.
         content = content,
     )
 }

@@ -1,5 +1,6 @@
 package com.novavpn.app.ui.components
 
+import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -100,8 +101,7 @@ fun SlideToggle(
         Text(
             text = label,
             color = labelColor,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Normal,
+            style = NovaType.Slider,
             modifier = Modifier
                 .align(Alignment.Center)
                 .alpha((1f - p * 1.4f).coerceIn(0f, 1f)),
@@ -158,7 +158,7 @@ fun SlideToggle(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            DotsGridIcon(Color(0xFFB4B4BA))
+            DotsGridIcon(Nova.IconMuted)
         }
     }
 }

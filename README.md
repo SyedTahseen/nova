@@ -54,3 +54,24 @@ Once connected it sends one real request through the tunnel; if that fails an or
 
 The ⋮ menu has Test, Sort (default / fastest / name), Group by (source / country / protocol / none) and Delete (unreachable, duplicates, manual servers, subscriptions, all).
 Subscription URLs may be plain http, so cleartext traffic is allowed in the manifest.
+
+## Design system (keep new screens consistent)
+
+Everything visual comes from `ui/theme/` and `ui/components/`. Don't type colours, sizes or radii in a screen.
+
+| Need | Use | Where |
+|---|---|---|
+| Colour | `Nova.Lime`, `Nova.TextMuted`, `Nova.Card` … | `theme/Theme.kt` |
+| Text | `Text(..., style = NovaType.Body)` (Display, ScreenTitle, Title, Heading, Body, Secondary, Caption, Small, Label …) | `theme/Type.kt` |
+| Corners | `NovaShapes.Card / Pill / Control / Field / Small` | `theme/Shape.kt` |
+| Spacing | `NovaSpace.S / M / L / Xl` | `theme/Shape.kt` |
+| Lime button | `PrimaryButton` | `components/NovaUi.kt` |
+| Empty state | `EmptyStateCard` | `components/NovaUi.kt` |
+| Icon pill (search, add, back) | `NovaIconPill` | `components/NovaUi.kt` |
+| Headings | `SectionHeader`, `SectionLabel` | `components/NovaUi.kt` |
+| Menus | `NovaMenuItem`, `NovaSubMenuItem`, `NovaMenuBack`, `NovaMenuLabel` | `components/NovaUi.kt` |
+| Forms / dialogs | `NovaTextField`, `NovaChipRow`, `NovaFieldLabel`, `NovaDialog` | `components/NovaUi.kt` |
+| Pill / chip surface | `Modifier.chipSurface(shape)` | `components/PillSurface.kt` |
+
+Rule of thumb: if a screen needs something that isn't in this table, add it here first, then use it.
+The app is dark-only; adding a light theme later means giving `Nova` light values and switching in `NovaTheme`.

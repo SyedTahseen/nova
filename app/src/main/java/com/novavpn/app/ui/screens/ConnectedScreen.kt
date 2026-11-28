@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.screens
 
+import com.novavpn.app.ui.theme.NovaShapes
+import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -87,8 +89,8 @@ fun ConnectedScreen(
             .background(Nova.Black)
             .background(
                 Brush.radialGradient(
-                    0f to Color(0xFF3A4200).copy(alpha = 0.75f),
-                    0.55f to Color(0xFF141800).copy(alpha = 0.35f),
+                    0f to Nova.GlowTop.copy(alpha = 0.75f),
+                    0.55f to Nova.GlowMid.copy(alpha = 0.35f),
                     1f to Color.Transparent,
                     center = Offset(540f, 330f),
                     radius = 1100f,
@@ -116,15 +118,13 @@ fun ConnectedScreen(
                     Text(
                         statusText,
                         color = if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = NovaType.Status,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         formatElapsed(elapsedSec),
                         color = Nova.White,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = NovaType.Timer,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -133,7 +133,7 @@ fun ConnectedScreen(
             Spacer(Modifier.height(8.dp))
 
             // Location card
-            val cardShape = RoundedCornerShape(24.dp)
+            val cardShape = NovaShapes.Pill
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -147,16 +147,15 @@ fun ConnectedScreen(
                 Text(
                     vpn.regionLabel ?: "",
                     color = Nova.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = NovaType.BodyStrong,
                     modifier = Modifier.weight(1f),
                 )
                 Box(
                     Modifier
                         .size(54.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(NovaShapes.Control)
                         .background(Nova.CardRaised)
-                        .border(1.dp, Nova.CardBorder, RoundedCornerShape(18.dp)),
+                        .border(1.dp, Nova.CardBorder, NovaShapes.Control),
                     contentAlignment = Alignment.Center,
                 ) {
                     ChevronIcon(Nova.White, Modifier.size(22.dp))
@@ -167,7 +166,7 @@ fun ConnectedScreen(
                 Text(
                     it,
                     color = Nova.Orange,
-                    fontSize = 13.sp,
+                    style = NovaType.Caption,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 6.dp, end = 6.dp),
                 )
             }
@@ -199,7 +198,7 @@ private val UP_STEPS = floatArrayOf(2f, 8f, 15f, 30f, 60f)
 
 @Composable
 private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: Modifier) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = NovaShapes.Pill
     Column(
         modifier
             .clip(shape)
@@ -207,7 +206,7 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
             .border(1.dp, Nova.CardBorder, shape)
             .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
-        Text(title, color = Nova.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(start = 2.dp))
+        Text(title, color = Nova.TextMuted, style = NovaType.Caption, modifier = Modifier.padding(start = 2.dp))
         Spacer(Modifier.height(10.dp))
 
         val level = if (mbps < 0.05f) -1 else steps.indexOfFirst { mbps <= it }.let { if (it == -1) 4 else it }
@@ -218,13 +217,12 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
             Text(
                 formatSpeed(mbps),
                 color = Nova.White,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = NovaType.Display,
             )
             Text(
                 " mb/s",
                 color = Nova.TextMuted,
-                fontSize = 15.sp,
+                style = NovaType.Body,
                 modifier = Modifier.padding(bottom = 7.dp),
             )
         }
@@ -257,7 +255,7 @@ private fun SpeedBars(level: Int) {
                         var x = -size.height
                         while (x < size.width) {
                             drawLine(
-                                Color(0xFF2A2A2E),
+                                Nova.BarTrack,
                                 Offset(x, size.height),
                                 Offset(x + size.height, 0f),
                                 strokeWidth = 1.2.dp.toPx(),
@@ -275,12 +273,12 @@ private fun SpeedBars(level: Int) {
                         .height(34.dp)
                         .then(
                             if (lit) Modifier.shadow(
-                                12.dp, RoundedCornerShape(9.dp),
+                                12.dp, NovaShapes.Small,
                                 ambientColor = Nova.Lime, spotColor = Nova.Lime,
                             ) else Modifier,
                         )
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(if (lit) Nova.Lime else Color(0xFF2E2E33)),
+                        .clip(NovaShapes.Small)
+                        .background(if (lit) Nova.Lime else Nova.BarOff),
                 )
             }
         }

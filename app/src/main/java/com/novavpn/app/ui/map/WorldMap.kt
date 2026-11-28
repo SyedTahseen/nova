@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.map
 
+import com.novavpn.app.ui.theme.NovaShapes
+import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -171,7 +173,7 @@ fun WorldMap(
                         p.place((mx - p.width / 2f).roundToInt(), (my - p.height - gapPx).roundToInt())
                     }
                 }
-                .chipSurface(RoundedCornerShape(20.dp), fillAlpha = PILL_OVERLAY_ALPHA)
+                .chipSurface(NovaShapes.Pill, fillAlpha = PILL_OVERLAY_ALPHA)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -189,8 +191,7 @@ fun WorldMap(
             Text(
                 selected.label,
                 color = Nova.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
+                style = NovaType.Secondary,
                 modifier = Modifier.padding(start = 10.dp),
             )
         }
