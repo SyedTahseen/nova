@@ -13,7 +13,10 @@ import com.novavpn.app.data.SubscriptionClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -81,22 +84,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Pills shown on Home (at most [HOME_PILLS]): recently used servers first, then the fastest
      * tested ones, then anything else to fill up. The selected server is always included.
-     * Selecting a pill does not reorder the row; only connecting (recents) and new ping results do.
+     *
+     * The last result is saved and shown instantly on the next launch, and ping results only
+     * re-sort it after they stop arriving, so the row never visibly "fills in" or shuffles.
      */
+    private fun pickPills(regions: List<Region>, recent: List<String>, pings: Map<String, Int?>): List<Region> {
+        val byId = regions.associateBy { it.id }
+        val recents = recent.mapNotNull { byId[it] }.take(HOME_RECENT)
+        val fastest = regions.filter { pings[it.id] != null }.sortedBy { pings[it.id] }
+        return (recents + fastest + regions).distinctBy { it.id }.take(HOME_PILLS)
+    }
+
+    private fun withSelected(pills: List<Region>, sel: Region?): List<Region> {
+        if (sel == null || pills.any { it.id == sel.id }) return pills
+        return if (pills.size >= HOME_PILLS) pills.dropLast(1) + sel else pills + sel
+    }
+
+    @OptIn(FlowPreview::class)
+    private val basePills: StateFlow<List<Region>> = run {
+        val byId = _regions.value.associateBy { it.id }
+        val saved = (prefs.getString(KEY_PILLS, "") ?: "").split(',').mapNotNull { byId[it] }
+        val initial = saved.ifEmpty { pickPills(_regions.value, _recent.value, emptyMap()) }
+        combine(_regions, _recent, _pings.debounce(1500)) { regions, recent, pings ->
+            pickPills(regions, recent, pings)
+        }.onEach { list ->
+            prefs.edit().putString(KEY_PILLS, list.joinToString(",") { it.id }).apply()
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, initial)
+    }
+
     val homePills: StateFlow<List<Region>> =
-        combine(_regions, _recent, _pings, _selectedId) { regions, recent, pings, selId ->
-            val byId = regions.associateBy { it.id }
-            val recents = recent.mapNotNull { byId[it] }.take(HOME_RECENT)
-            val fastest = regions
-                .filter { pings[it.id] != null }
-                .sortedBy { pings[it.id] }
-            val picked = (recents + fastest + regions).distinctBy { it.id }.take(HOME_PILLS).toMutableList()
-            val sel = selId?.let { byId[it] }
-            if (sel != null && picked.none { it.id == sel.id }) {
-                if (picked.size >= HOME_PILLS) picked[picked.lastIndex] = sel else picked += sel
-            }
-            picked.toList()
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        combine(basePills, _selectedId, _regions) { base, selId, regions ->
+            // Servers that were deleted since the list was saved must not linger.
+            val live = regions.associateBy { it.id }
+            withSelected(base.mapNotNull { live[it.id] }, selId?.let { live[it] })
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, withSelected(basePills.value, region(_selectedId.value)))
 
     /** Remember [id] as recently used (called when the user connects). */
     fun markRecent(id: String) {
@@ -359,6 +380,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_SORT = "sort_mode"
         const val KEY_GROUP = "group_mode"
         const val KEY_RECENT = "recent_regions"
+        const val KEY_PILLS = "home_pills"
         const val HOME_PILLS = 10
         const val HOME_RECENT = 5
         const val HOME_RECENT_KEEP = 20
