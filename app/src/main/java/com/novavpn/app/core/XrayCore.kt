@@ -20,6 +20,9 @@ object XrayCore {
     private var envReady = false
     private var controller: CoreController? = null
 
+    /** Xray-core version bundled in libv2ray.aar, e.g. "26.11.26". */
+    fun version(): String = runCatching { Libv2ray.checkVersionX() }.getOrDefault("unknown")
+
     @Synchronized
     fun start(context: Context, configJson: String, tunFd: Int) {
         if (!envReady) {
