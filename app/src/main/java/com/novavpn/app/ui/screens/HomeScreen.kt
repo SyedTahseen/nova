@@ -63,9 +63,15 @@ import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.map.WorldMap
 import com.novavpn.app.ui.theme.Nova
 
+/** Item count / start index of the looping pill row: far enough from both ends that nobody reaches them. */
+private const val REGION_ROW_COUNT = 2_000_000
+const val REGION_ROW_START = 1_000_000
+
 @Composable
 fun HomeScreen(
     regions: List<Region>,
+    /** The few pills shown in the row (recent + fastest), not every server. */
+    pills: List<Region>,
     selected: Region?,
     error: String?,
     onSelect: (Region) -> Unit,
@@ -129,22 +135,31 @@ fun HomeScreen(
                     overlay = true,
                 )
             } else {
-            val index = regions.indexOfFirst { it.id == selected?.id }.coerceAtLeast(0)
+            val n = pills.size
+            val loop = n >= 3
+            val index = pills.indexOfFirst { it.id == selected.id }.coerceAtLeast(0)
             // Bring the selected pill to the middle when the selection changes (or the app is opened).
             // Coming back to Home with the same selection leaves the row exactly where the user scrolled it.
-            LaunchedEffect(selected?.id) {
-                val id = selected?.id ?: return@LaunchedEffect
-                if (id == centeredId) return@LaunchedEffect
+            LaunchedEffect(selected.id, n) {
+                val id = selected.id
+                if (id == centeredId || n == 0) return@LaunchedEffect
                 // On first open the row has not been measured yet; wait for it.
                 snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }.first { it }
+                fun isSelected(i: Int) = pills.getOrNull(if (loop) i.mod(n) else i)?.id == id
+                // Of the visible copies of the selected pill, the one closest to the middle.
                 fun distanceToCenter(): Float? {
                     val info = listState.layoutInfo
-                    val item = info.visibleItemsInfo.firstOrNull { it.key == id } ?: return null
                     val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2f
-                    return item.offset + item.size / 2f - viewportCenter
+                    return info.visibleItemsInfo
+                        .filter { isSelected(it.index) }
+                        .map { it.offset + it.size / 2f - viewportCenter }
+                        .minByOrNull { kotlin.math.abs(it) }
                 }
                 // Off screen: jump close first so it can be measured.
-                if (distanceToCenter() == null) listState.scrollToItem(index)
+                if (distanceToCenter() == null) {
+                    val first = listState.firstVisibleItemIndex
+                    listState.scrollToItem(if (loop) first - first.mod(n) + index else index)
+                }
                 distanceToCenter()?.let {
                     if (centeredId == null) listState.scrollBy(it) // app just opened: already centered, no animation
                     else listState.animateScrollBy(it, tween(Motion.Long, easing = Motion.Standard))
@@ -157,12 +172,14 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
-                items(regions, key = { it.id }) { region ->
+                // Endless row: the same few pills repeat in both directions.
+                items(if (loop) REGION_ROW_COUNT else n, key = { it }) { i ->
+                    val region = pills[if (loop) i % n else i]
                     RegionChip(
                         region = region,
-                        selected = region.id == selected?.id,
+                        selected = region.id == selected.id,
                         onClick = {
-                            if (region.id == selected?.id) onOpenRegions() else onSelect(region)
+                            if (region.id == selected.id) onOpenRegions() else onSelect(region)
                         },
                     )
                 }

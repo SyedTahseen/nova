@@ -19,6 +19,7 @@ import com.novavpn.app.MainViewModel
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.screens.ConnectedScreen
 import com.novavpn.app.ui.screens.HomeScreen
+import com.novavpn.app.ui.screens.REGION_ROW_START
 import com.novavpn.app.ui.screens.RegionsScreen
 import com.novavpn.app.ui.screens.SettingsScreen
 import com.novavpn.app.ui.theme.Nova
@@ -39,6 +40,9 @@ fun NovaApp(
     val speed by VpnController.speed.collectAsStateWithLifecycle()
     val selectedId by vm.selectedId.collectAsStateWithLifecycle()
     val regions by vm.regions.collectAsStateWithLifecycle()
+    val homePills by vm.homePills.collectAsStateWithLifecycle()
+    // Remember every server the user connects to so it shows up as a "recent" pill on Home.
+    val connect: (com.novavpn.app.data.Region) -> Unit = { r -> vm.markRecent(r.id); onConnect(r) }
 
     // "main" = Home or Connected (depending on the VPN), otherwise the name of the open sub screen.
     var sub by rememberSaveable { mutableStateOf("main") }
@@ -46,7 +50,7 @@ fun NovaApp(
     var regionsParent by rememberSaveable { mutableStateOf("main") }
     var openAddOnShow by rememberSaveable { mutableStateOf(false) }
     // Home's region row lives here so its scroll position survives opening Settings/Regions and coming back.
-    val regionRowState = rememberLazyListState()
+    val regionRowState = rememberLazyListState(initialFirstVisibleItemIndex = REGION_ROW_START)
     var centeredRegionId by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun openRegions(from: String, add: Boolean = false) {
@@ -98,6 +102,7 @@ fun NovaApp(
 
                 Screen.Home -> HomeScreen(
                     regions = regions,
+                    pills = homePills,
                     selected = selected,
                     error = vpn.error,
                     onSelect = { vm.select(it.id); VpnController.clearError() },
@@ -109,7 +114,7 @@ fun NovaApp(
                     onCentered = { centeredRegionId = it },
                     onConnect = {
                         VpnController.clearError()
-                        selected?.let(onConnect)
+                        selected?.let(connect)
                     },
                 )
 
@@ -128,7 +133,7 @@ fun NovaApp(
                         vm.select(r.id)
                         goBack()
                         // Switch servers on the fly if a tunnel is already up.
-                        if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) onConnect(r)
+                        if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) connect(r)
                     },
                     onMoreRegions = {
                         Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()

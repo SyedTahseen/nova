@@ -11,7 +11,10 @@ import com.novavpn.app.data.RegionRepository
 import com.novavpn.app.data.Subscription
 import com.novavpn.app.data.SubscriptionClient
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -69,6 +72,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** True while a subscription is downloading. */
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    /** Server ids the user connected to, newest first. */
+    private val _recent = MutableStateFlow(
+        (prefs.getString(KEY_RECENT, "") ?: "").split(',').filter { it.isNotBlank() },
+    )
+
+    /**
+     * Pills shown on Home (at most [HOME_PILLS]): recently used servers first, then the fastest
+     * tested ones, then anything else to fill up. The selected server is always included.
+     * Selecting a pill does not reorder the row; only connecting (recents) and new ping results do.
+     */
+    val homePills: StateFlow<List<Region>> =
+        combine(_regions, _recent, _pings, _selectedId) { regions, recent, pings, selId ->
+            val byId = regions.associateBy { it.id }
+            val recents = recent.mapNotNull { byId[it] }.take(HOME_RECENT)
+            val fastest = regions
+                .filter { pings[it.id] != null }
+                .sortedBy { pings[it.id] }
+            val picked = (recents + fastest + regions).distinctBy { it.id }.take(HOME_PILLS).toMutableList()
+            val sel = selId?.let { byId[it] }
+            if (sel != null && picked.none { it.id == sel.id }) {
+                if (picked.size >= HOME_PILLS) picked[picked.lastIndex] = sel else picked += sel
+            }
+            picked.toList()
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Remember [id] as recently used (called when the user connects). */
+    fun markRecent(id: String) {
+        val next = (listOf(id) + _recent.value.filter { it != id }).take(HOME_RECENT_KEEP)
+        _recent.value = next
+        prefs.edit().putString(KEY_RECENT, next.joinToString(",")).apply()
+    }
 
     // Subscriptions can hold hundreds of servers; don't open hundreds of sockets at once.
     private val pingGate = Semaphore(16)
@@ -323,5 +358,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_SELECTED = "selected_region"
         const val KEY_SORT = "sort_mode"
         const val KEY_GROUP = "group_mode"
+        const val KEY_RECENT = "recent_regions"
+        const val HOME_PILLS = 10
+        const val HOME_RECENT = 5
+        const val HOME_RECENT_KEEP = 20
     }
 }
