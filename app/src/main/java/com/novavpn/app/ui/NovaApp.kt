@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,9 @@ fun NovaApp(
     // Where Back from Regions goes: Regions can be opened from Home, Connected and Settings.
     var regionsParent by rememberSaveable { mutableStateOf("main") }
     var openAddOnShow by rememberSaveable { mutableStateOf(false) }
+    // Home's region row lives here so its scroll position survives opening Settings/Regions and coming back.
+    val regionRowState = rememberLazyListState()
+    var centeredRegionId by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun openRegions(from: String, add: Boolean = false) {
         regionsParent = from
@@ -100,6 +104,9 @@ fun NovaApp(
                     onOpenRegions = { openRegions("main") },
                     onOpenSettings = { sub = "settings" },
                     onAddServer = { openRegions("main", add = true) },
+                    listState = regionRowState,
+                    centeredId = centeredRegionId,
+                    onCentered = { centeredRegionId = it },
                     onConnect = {
                         VpnController.clearError()
                         selected?.let(onConnect)

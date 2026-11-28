@@ -10,6 +10,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -17,6 +19,9 @@ import com.novavpn.app.ui.Motion
 import com.novavpn.app.ui.Press
 import com.novavpn.app.ui.pressable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -68,6 +73,11 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onAddServer: () -> Unit,
     onConnect: () -> Unit,
+    /** Scroll position of the region row. Owned by NovaApp so it survives leaving and re-entering Home. */
+    listState: LazyListState,
+    /** Region that was last brought to the middle of the row (null = never, i.e. the app was just opened). */
+    centeredId: String?,
+    onCentered: (String) -> Unit,
     mapOverlayOpen: Boolean = false,
 ) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
@@ -119,9 +129,28 @@ fun HomeScreen(
                     overlay = true,
                 )
             } else {
-            val listState = rememberLazyListState()
             val index = regions.indexOfFirst { it.id == selected?.id }.coerceAtLeast(0)
-            LaunchedEffect(selected?.id) { listState.animateScrollToItem(index) }
+            // Bring the selected pill to the middle when the selection changes (or the app is opened).
+            // Coming back to Home with the same selection leaves the row exactly where the user scrolled it.
+            LaunchedEffect(selected?.id) {
+                val id = selected?.id ?: return@LaunchedEffect
+                if (id == centeredId) return@LaunchedEffect
+                // On first open the row has not been measured yet; wait for it.
+                snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }.first { it }
+                fun distanceToCenter(): Float? {
+                    val info = listState.layoutInfo
+                    val item = info.visibleItemsInfo.firstOrNull { it.key == id } ?: return null
+                    val viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                    return item.offset + item.size / 2f - viewportCenter
+                }
+                // Off screen: jump close first so it can be measured.
+                if (distanceToCenter() == null) listState.scrollToItem(index)
+                distanceToCenter()?.let {
+                    if (centeredId == null) listState.scrollBy(it) // app just opened: already centered, no animation
+                    else listState.animateScrollBy(it, tween(Motion.Long, easing = Motion.Standard))
+                }
+                onCentered(id)
+            }
 
             LazyRow(
                 state = listState,
