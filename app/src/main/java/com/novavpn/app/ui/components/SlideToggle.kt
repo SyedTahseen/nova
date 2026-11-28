@@ -101,7 +101,7 @@ fun SlideToggle(
             text = label,
             color = labelColor,
             fontSize = 17.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier
                 .align(Alignment.Center)
                 .alpha((1f - p * 1.4f).coerceIn(0f, 1f)),
