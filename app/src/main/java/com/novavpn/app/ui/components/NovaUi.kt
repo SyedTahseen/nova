@@ -3,6 +3,26 @@ package com.novavpn.app.ui.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberTransition
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -134,9 +154,59 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 // --- dropdown menus -------------------------------------------------------------------------
 
+// Motion tokens for the menu morph (from transitions.dev "Menu dropdown": 250ms open, 150ms close,
+// smooth-out easing, scale 0.97 / 0.99).
+private val MenuEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+private const val MENU_OPEN_MS = 250
+private const val MENU_CLOSE_MS = 150
+private val MENU_WIDTH = 240.dp
+
+/** Where the menu goes and which corner it grows from (the corner nearest its trigger). */
+private class MenuPositionProvider(
+    private val offset: IntOffset,
+    private val margin: Int,
+    private val onResolved: (TransformOrigin, IntSize) -> Unit,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val w = popupContentSize.width
+        val h = popupContentSize.height
+
+        // Left edge on the trigger's left edge; if that runs off screen, right edge on its right edge.
+        val leftX = anchorBounds.left + offset.x
+        val alignRight = leftX + w > windowSize.width - margin
+        val rawX = if (alignRight) anchorBounds.right - w - offset.x else leftX
+        val x = rawX.coerceIn(margin, maxOf(margin, windowSize.width - w - margin))
+
+        // Below the trigger; if there is no room, above it.
+        val below = anchorBounds.bottom + offset.y
+        val above = anchorBounds.top - offset.y - h
+        val fitsBelow = below + h <= windowSize.height - margin
+        val y = when {
+            fitsBelow -> below
+            above >= margin -> above
+            else -> maxOf(margin, windowSize.height - h - margin)
+        }
+
+        onResolved(
+            TransformOrigin(if (alignRight) 1f else 0f, if (fitsBelow || above < margin) 0f else 1f),
+            anchorBounds.size,
+        )
+        return IntOffset(x, y)
+    }
+}
+
 /**
  * The app's popup menu (three-dot, + and per-server menus). Same card surface as the rest of the app:
  * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Card-style rounded corners, no tonal tint.
+ *
+ * Motion ("menu morph"): the surface grows out of its trigger, starting at the trigger's size and
+ * anchored at the corner nearest to it, while the rows fade in a moment later. Closing is quicker and
+ * only fades with a tiny scale-down. Material's DropdownMenu is not used because it cannot do this.
  */
 @Composable
 fun NovaDropdownMenu(
@@ -146,19 +216,77 @@ fun NovaDropdownMenu(
     offset: DpOffset = DpOffset(0.dp, 6.dp),
     content: @Composable () -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier.defaultMinSize(minWidth = 220.dp),
-        offset = offset,
-        shape = NovaShapes.Menu,
-        containerColor = Nova.CardRaised,
-        tonalElevation = 0.dp,
-        shadowElevation = 12.dp,
-        border = BorderStroke(1.dp, Nova.CardBorder),
-    ) {
-        // Inner padding so the rounded corners never clip the first / last row.
-        Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
+    val state = remember { MutableTransitionState(false) }
+    state.targetState = expanded
+
+    var origin by remember { mutableStateOf(TransformOrigin(1f, 0f)) }
+    var anchorSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+
+    // Stay in the tree until the close animation has finished.
+    if (state.currentState || state.targetState) {
+        val provider = remember(offset, density) {
+            MenuPositionProvider(
+                offset = with(density) { IntOffset(offset.x.roundToPx(), offset.y.roundToPx()) },
+                margin = with(density) { 8.dp.roundToPx() },
+            ) { o, size ->
+                if (o != origin) origin = o
+                if (size != anchorSize) anchorSize = size
+            }
+        }
+
+        Popup(
+            popupPositionProvider = provider,
+            onDismissRequest = onDismissRequest,
+            properties = PopupProperties(focusable = true),
+        ) {
+            val transition = rememberTransition(state, label = "menuMorph")
+            val open by transition.animateFloat(
+                transitionSpec = { tween(if (targetState) MENU_OPEN_MS else MENU_CLOSE_MS, easing = MenuEase) },
+                label = "menuOpen",
+            ) { if (it) 1f else 0f }
+            val closing = !transition.targetState
+
+            Surface(
+                modifier = modifier
+                    .defaultMinSize(minWidth = 220.dp)
+                    .graphicsLayer {
+                        val p = open
+                        if (closing) {
+                            val sc = 0.97f + 0.03f * p
+                            scaleX = sc
+                            scaleY = sc
+                            alpha = p
+                        } else {
+                            // Start from the trigger's size (never smaller than a quarter of the menu).
+                            val fromX = if (size.width > 0f) (anchorSize.width / size.width).coerceIn(0.25f, 1f) else 0.9f
+                            val fromY = if (size.height > 0f) (anchorSize.height / size.height).coerceIn(0.25f, 1f) else 0.9f
+                            scaleX = fromX + (1f - fromX) * p
+                            scaleY = fromY + (1f - fromY) * p
+                            alpha = (p * 3f).coerceAtMost(1f)
+                        }
+                        transformOrigin = origin
+                    },
+                shape = NovaShapes.Menu,
+                color = Nova.CardRaised,
+                tonalElevation = 0.dp,
+                shadowElevation = 12.dp,
+                border = BorderStroke(1.dp, Nova.CardBorder),
+            ) {
+                // Rows fade in slightly after the surface has started growing.
+                Column(
+                    Modifier
+                        .graphicsLayer {
+                            alpha = if (closing) open else ((open - 0.3f) / 0.5f).coerceIn(0f, 1f)
+                        }
+                        // Fixed width: rows fill the width, so without it the menu would stretch across the screen.
+                        .width(MENU_WIDTH)
+                        .verticalScroll(rememberScrollState())
+                        // Inner padding so the rounded corners never clip the first / last row.
+                        .padding(vertical = NovaSpace.S),
+                ) { content() }
+            }
+        }
     }
 }
 
