@@ -36,9 +36,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,6 +75,7 @@ import com.novavpn.app.ui.components.NovaChipRow
 import com.novavpn.app.ui.components.NovaDialog
 import com.novavpn.app.ui.components.NovaFieldLabel
 import com.novavpn.app.ui.components.NovaIconPill
+import com.novavpn.app.ui.components.NovaDropdownMenu
 import com.novavpn.app.ui.components.NovaMenuBack
 import com.novavpn.app.ui.components.NovaMenuItem
 import com.novavpn.app.ui.components.NovaSubMenuItem
@@ -472,10 +470,9 @@ private fun RegionsHeader(
 
             Box {
                 NovaIconPill(onClick = { addOpen = true }, label = "Add server") { PlusIcon(Nova.White) }
-                DropdownMenu(
+                NovaDropdownMenu(
                     expanded = addOpen,
                     onDismissRequest = { addOpen = false },
-                    containerColor = Nova.CardRaised,
                 ) {
                     NovaMenuItem("Subscription URL") { addOpen = false; onSubscription() }
                     NovaMenuItem("Import from clipboard") { addOpen = false; onClipboard() }
@@ -487,10 +484,9 @@ private fun RegionsHeader(
 
         Box {
             NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
-            DropdownMenu(
+            NovaDropdownMenu(
                 expanded = moreOpen,
                 onDismissRequest = { moreOpen = false; page = "root" },
-                containerColor = Nova.CardRaised,
             ) {
                 fun close(block: () -> Unit): () -> Unit = { moreOpen = false; page = "root"; block() }
 
@@ -835,10 +831,9 @@ private fun RegionRow(
         }
 
         if (hasMenu) {
-            DropdownMenu(
+            NovaDropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                containerColor = Nova.CardRaised,
                 offset = androidx.compose.ui.unit.DpOffset(16.dp, 0.dp),
             ) {
                 onCopy?.let { NovaMenuItem("Copy link") { menuOpen = false; it() } }

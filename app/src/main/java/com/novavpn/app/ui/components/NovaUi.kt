@@ -1,5 +1,6 @@
 package com.novavpn.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,7 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,6 +32,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaShapes
@@ -123,14 +129,72 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 // --- dropdown menus -------------------------------------------------------------------------
 
-/** Menu row; shows a check mark when [checked]. */
+/**
+ * The app's popup menu (three-dot, + and per-server menus). Same card surface as the rest of the app:
+ * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Card-style rounded corners, no tonal tint.
+ */
+@Composable
+fun NovaDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    offset: DpOffset = DpOffset(0.dp, 6.dp),
+    content: @Composable () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier.defaultMinSize(minWidth = 220.dp),
+        offset = offset,
+        shape = NovaShapes.Menu,
+        containerColor = Nova.CardRaised,
+        tonalElevation = 0.dp,
+        shadowElevation = 12.dp,
+        border = BorderStroke(1.dp, Nova.CardBorder),
+    ) {
+        // Inner padding so the rounded corners never clip the first / last row.
+        Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
+    }
+}
+
+private val MenuItemPadding = PaddingValues(horizontal = NovaSpace.Xl, vertical = NovaSpace.M)
+
+@Composable
+private fun menuItemColors(color: Color) = MenuDefaults.itemColors(
+    textColor = color,
+    leadingIconColor = Nova.TextMuted,
+    trailingIconColor = Nova.TextMuted,
+    disabledTextColor = Nova.Gray,
+)
+
+/** Thin divider between groups of menu rows. */
+@Composable
+fun NovaMenuDivider() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = NovaSpace.Xs)
+            .height(1.dp)
+            .background(Nova.CardBorder),
+    )
+}
+
+/** Menu row; shows a lime check mark when [checked]. */
 @Composable
 fun NovaMenuItem(text: String, checked: Boolean = false, color: Color = Nova.White, onClick: () -> Unit) {
     DropdownMenuItem(
-        text = { Text(text, color = color, style = NovaType.Body) },
+        text = {
+            Text(
+                text,
+                color = if (checked) Nova.Lime else color,
+                style = if (checked) NovaType.BodyStrong else NovaType.Body,
+            )
+        },
         trailingIcon = if (checked) {
             { CheckIcon(Nova.Lime, Modifier.size(18.dp)) }
         } else null,
+        colors = menuItemColors(color),
+        contentPadding = MenuItemPadding,
         onClick = onClick,
     )
 }
@@ -141,6 +205,8 @@ fun NovaSubMenuItem(text: String, color: Color = Nova.White, onClick: () -> Unit
     DropdownMenuItem(
         text = { Text(text, color = color, style = NovaType.Body) },
         trailingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp)) },
+        colors = menuItemColors(color),
+        contentPadding = MenuItemPadding,
         onClick = onClick,
     )
 }
@@ -151,8 +217,11 @@ fun NovaMenuBack(title: String, onClick: () -> Unit) {
     DropdownMenuItem(
         text = { Text(title, color = Nova.TextMuted, style = NovaType.SecondaryStrong) },
         leadingIcon = { ChevronIcon(Nova.TextMuted, Modifier.size(18.dp), left = true) },
+        colors = menuItemColors(Nova.TextMuted),
+        contentPadding = MenuItemPadding,
         onClick = onClick,
     )
+    NovaMenuDivider()
 }
 
 /** Small upper-case label between groups of menu rows. */
@@ -162,7 +231,7 @@ fun NovaMenuLabel(text: String) {
         text.uppercase(),
         color = Nova.TextMuted,
         style = NovaType.Label,
-        modifier = Modifier.padding(start = NovaSpace.L, end = NovaSpace.L, top = 10.dp, bottom = 2.dp),
+        modifier = Modifier.padding(start = NovaSpace.Xl, end = NovaSpace.Xl, top = 10.dp, bottom = 2.dp),
     )
 }
 
@@ -234,8 +303,13 @@ fun NovaDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
+        modifier = Modifier.border(1.dp, Nova.CardBorder, NovaShapes.Card),
+        shape = NovaShapes.Card,
         containerColor = Nova.CardRaised,
-        title = { Text(title, color = Nova.White) },
+        tonalElevation = 0.dp,
+        titleContentColor = Nova.White,
+        textContentColor = Nova.TextMuted,
+        title = { Text(title, color = Nova.White, style = NovaType.Title) },
         text = text,
         confirmButton = confirmButton,
         dismissButton = dismissButton,

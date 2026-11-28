@@ -9,6 +9,7 @@ object NovaShapes {
     val Pill = RoundedCornerShape(24.dp)     // rows, pills, buttons, location cards
     val Control = RoundedCornerShape(18.dp)  // small buttons inside rows, selectable chips
     val Field = RoundedCornerShape(16.dp)    // text fields
+    val Menu = RoundedCornerShape(22.dp)     // popup menus (three-dot, +, per-server)
     val Small = RoundedCornerShape(9.dp)     // speed bars and other tiny elements
 }
 
