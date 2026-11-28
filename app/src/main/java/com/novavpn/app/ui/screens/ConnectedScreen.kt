@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.ui.components.ChevronIcon
+import com.novavpn.app.ui.components.DialInk
 import com.novavpn.app.ui.components.PowerDial
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
@@ -116,16 +117,14 @@ fun ConnectedScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Power dial + status + timer
+            // Tick ring + yellow disc with status + timer inside
             Box(
                 Modifier.fillMaxWidth().height(330.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    PowerDial(Modifier.size(200.dp), live = live)
-                    Spacer(Modifier.height(14.dp))
+                PowerDial(Modifier.size(310.dp), live = live) {
                     val statusColor by animateColorAsState(
-                        if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
+                        if (live) DialInk else DialInk.copy(alpha = 0.8f),
                         tween(Motion.Long, easing = Motion.Standard), label = "statusColor",
                     )
                     AnimatedContent(
@@ -138,7 +137,7 @@ fun ConnectedScreen(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         formatElapsed(elapsedSec),
-                        color = Nova.White,
+                        color = DialInk,
                         style = NovaType.Timer,
                         textAlign = TextAlign.Center,
                     )
