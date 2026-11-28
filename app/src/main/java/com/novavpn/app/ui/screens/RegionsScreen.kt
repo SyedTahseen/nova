@@ -84,7 +84,7 @@ import com.novavpn.app.ui.components.NovaMenuItem
 import com.novavpn.app.ui.components.NovaMenuPages
 import com.novavpn.app.ui.Motion
 import com.novavpn.app.ui.Press
-import com.novavpn.app.ui.fadeTransition
+import com.novavpn.app.ui.searchTransition
 import com.novavpn.app.ui.pressable
 import com.novavpn.app.ui.components.NovaSubMenuItem
 import com.novavpn.app.ui.components.NovaTextField
@@ -436,7 +436,8 @@ private fun RegionsHeader(
         AnimatedContent(
             targetState = searching,
             modifier = Modifier.weight(1f),
-            transitionSpec = { fadeTransition() },
+            transitionSpec = { searchTransition(opening = targetState) },
+            contentAlignment = Alignment.CenterEnd,
             label = "regionsHeader",
         ) { isSearching ->
         Row(
@@ -507,6 +508,7 @@ private fun RegionsHeader(
             NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             NovaDropdownMenu(
                 expanded = moreOpen,
+                fixedWidth = 240.dp, // pages differ in width; keep the card steady while switching
                 // The page is reset when the menu OPENS (see the pill above), never while it is fading out,
                 // otherwise the menu flashes its root page during the exit animation.
                 onDismissRequest = { moreOpen = false },

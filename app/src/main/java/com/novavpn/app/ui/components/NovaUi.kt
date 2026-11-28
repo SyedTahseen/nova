@@ -7,6 +7,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -159,7 +160,6 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 private val MenuEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private const val MENU_OPEN_MS = 250
 private const val MENU_CLOSE_MS = 150
-private val MENU_WIDTH = 240.dp
 
 /** Where the menu goes and which corner it grows from (the corner nearest its trigger). */
 private class MenuPositionProvider(
@@ -214,6 +214,12 @@ fun NovaDropdownMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 6.dp),
+    /**
+     * null = the menu is as wide as its widest row (short menus like Copy / Delete stay compact).
+     * Menus whose content changes between pages (the three-dot menu) pass a fixed width so the card
+     * does not resize sideways while switching pages.
+     */
+    fixedWidth: Dp? = null,
     content: @Composable () -> Unit,
 ) {
     val state = remember { MutableTransitionState(false) }
@@ -249,7 +255,7 @@ fun NovaDropdownMenu(
 
             Surface(
                 modifier = modifier
-                    .defaultMinSize(minWidth = 220.dp)
+                    .defaultMinSize(minWidth = 140.dp)
                     .graphicsLayer {
                         val p = open
                         if (closing) {
@@ -279,8 +285,8 @@ fun NovaDropdownMenu(
                         .graphicsLayer {
                             alpha = if (closing) open else ((open - 0.3f) / 0.5f).coerceIn(0f, 1f)
                         }
-                        // Fixed width: rows fill the width, so without it the menu would stretch across the screen.
-                        .width(MENU_WIDTH)
+                        // Rows fill the width, so the width must be set or the menu would stretch across the screen.
+                        .then(if (fixedWidth != null) Modifier.width(fixedWidth) else Modifier.width(IntrinsicSize.Max))
                         .verticalScroll(rememberScrollState())
                         // Inner padding so the rounded corners never clip the first / last row.
                         .padding(vertical = NovaSpace.S),

@@ -6,6 +6,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -14,13 +15,16 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -55,6 +59,8 @@ object Motion {
     const val Axis = 700
 
     val Standard = FastOutSlowInEasing
+    /** The easing of the menu morph; also used for the search field so they feel the same. */
+    val Smooth = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
     val Enter = LinearOutSlowInEasing
     val Exit = FastOutLinearInEasing
 }
@@ -171,5 +177,28 @@ fun menuPageTransition(forward: Boolean): ContentTransform {
             slideOutHorizontally(tween(Motion.Short, easing = Motion.Standard)) { -it / 8 * dir },
         0f,
         SizeTransform(clip = true) { _, _ -> tween(Motion.Medium, easing = Motion.Standard) },
+    )
+}
+
+/**
+ * Title row <-> search field. Same feel as the menu morph: the search field grows out of the search
+ * button (from the right edge) over 250ms and shrinks back into it over 150ms, while the title row
+ * simply fades.
+ */
+fun searchTransition(opening: Boolean): ContentTransform = if (opening) {
+    ContentTransform(
+        fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)) +
+            expandHorizontally(tween(250, easing = Motion.Smooth), expandFrom = Alignment.End),
+        fadeOut(tween(Motion.Fast)),
+        1f,
+        SizeTransform(clip = false),
+    )
+} else {
+    ContentTransform(
+        fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)),
+        fadeOut(tween(Motion.Short)) +
+            shrinkHorizontally(tween(150, easing = Motion.Smooth), shrinkTowards = Alignment.End),
+        -1f,
+        SizeTransform(clip = false),
     )
 }
