@@ -3,14 +3,10 @@ package com.novavpn.app.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +24,9 @@ import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.vpn.VpnController
 import com.novavpn.app.vpn.VpnStatus
 
+/** The screens of the app. Exactly one is shown at a time; changing it cross-fades (see [axisTransition]). */
+private enum class Screen { Home, Connected, Settings, Regions }
+
 @Composable
 fun NovaApp(
     vm: MainViewModel,
@@ -38,103 +37,91 @@ fun NovaApp(
     val vpn by VpnController.state.collectAsStateWithLifecycle()
     val speed by VpnController.speed.collectAsStateWithLifecycle()
     val selectedId by vm.selectedId.collectAsStateWithLifecycle()
-    val pings by vm.pings.collectAsStateWithLifecycle()
     val regions by vm.regions.collectAsStateWithLifecycle()
 
-    var showRegions by rememberSaveable { mutableStateOf(false) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
+    // "main" = Home or Connected (depending on the VPN), otherwise the name of the open sub screen.
+    var sub by rememberSaveable { mutableStateOf("main") }
+    // Where Back from Regions goes: Regions can be opened from Home, Connected and Settings.
+    var regionsParent by rememberSaveable { mutableStateOf("main") }
     var openAddOnShow by rememberSaveable { mutableStateOf(false) }
-    // Registered first so the Regions handler below wins when Regions is open on top of Settings.
-    BackHandler(enabled = showSettings) { showSettings = false }
-    BackHandler(enabled = showRegions) { showRegions = false; openAddOnShow = false }
+
+    fun openRegions(from: String, add: Boolean = false) {
+        regionsParent = from
+        openAddOnShow = add
+        sub = "regions"
+    }
+
+    fun goBack() {
+        sub = if (sub == "regions") regionsParent else "main"
+        openAddOnShow = false
+    }
+    // Regions registers its own handler for closing the search field first; that one wins while searching.
+    BackHandler(enabled = sub != "main") { goBack() }
 
     val selected = vm.region(selectedId)
     val inSession = vpn.status != VpnStatus.Disconnected
 
+    val screen = when (sub) {
+        "settings" -> Screen.Settings
+        "regions" -> Screen.Regions
+        else -> if (inSession) Screen.Connected else Screen.Home
+    }
+
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
         AnimatedContent(
-            targetState = inSession,
+            targetState = screen,
             modifier = Modifier.fillMaxSize(),
-            transitionSpec = { screenTransition() },
-            label = "root",
-        ) { connected ->
-            if (connected) {
-                ConnectedScreen(
+            transitionSpec = {
+                val topLevel = setOf(Screen.Home, Screen.Connected)
+                if (initialState in topLevel && targetState in topLevel) screenTransition() else axisTransition()
+            },
+            label = "screen",
+        ) { s ->
+            when (s) {
+                Screen.Connected -> ConnectedScreen(
                     vpn = vpn,
                     speed = speed,
-                    onOpenRegions = { showRegions = true },
+                    onOpenRegions = { openRegions("main") },
                     onDisconnect = onDisconnect,
                 )
-            } else {
-                HomeScreen(
+
+                Screen.Home -> HomeScreen(
                     regions = regions,
                     selected = selected,
                     error = vpn.error,
                     onSelect = { vm.select(it.id); VpnController.clearError() },
-                    onOpenRegions = { showRegions = true },
-                    onOpenSettings = { showSettings = true },
-                    onAddServer = { openAddOnShow = true; showRegions = true },
-                    mapOverlayOpen = showRegions || showSettings,
+                    onOpenRegions = { openRegions("main") },
+                    onOpenSettings = { sub = "settings" },
+                    onAddServer = { openRegions("main", add = true) },
                     onConnect = {
                         VpnController.clearError()
                         selected?.let(onConnect)
                     },
                 )
-            }
-        }
 
-        AnimatedVisibility(
-            visible = showSettings,
-            enter = panelEnter(),
-            exit = panelExit(),
-        ) {
-            Panel {
-            SettingsScreen(
-                onBack = { showSettings = false },
-                onOpenRegions = { showRegions = true },
-                onRefreshPings = {
-                    vm.refreshPings()
-                    Toast.makeText(context, "Re-testing servers…", Toast.LENGTH_SHORT).show()
-                },
-            )
-            }
-        }
+                Screen.Settings -> SettingsScreen(
+                    onBack = { goBack() },
+                    onOpenRegions = { openRegions("settings") },
+                    onRefreshPings = {
+                        vm.refreshPings()
+                        Toast.makeText(context, "Re-testing servers…", Toast.LENGTH_SHORT).show()
+                    },
+                )
 
-        AnimatedVisibility(
-            visible = showRegions,
-            enter = panelEnter(),
-            exit = panelExit(),
-        ) {
-            Panel {
-            RegionsScreen(
-                vm = vm,
-                onSelect = { r ->
-                    vm.select(r.id)
-                    showRegions = false
-                    openAddOnShow = false
-                    // Switch servers on the fly if a tunnel is already up.
-                    if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) onConnect(r)
-                },
-                onMoreRegions = {
-                    Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
-                },
-                startWithAdd = openAddOnShow,
-            )
+                Screen.Regions -> RegionsScreen(
+                    vm = vm,
+                    onSelect = { r ->
+                        vm.select(r.id)
+                        goBack()
+                        // Switch servers on the fly if a tunnel is already up.
+                        if (vpn.status == VpnStatus.Connected && vpn.regionId != r.id) onConnect(r)
+                    },
+                    onMoreRegions = {
+                        Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
+                    },
+                    startWithAdd = openAddOnShow,
+                )
             }
         }
     }
-}
-
-/**
- * Wrapper for a full-screen panel that slides over the app. Swallows touches so nothing underneath
- * (the map, the connect slider) can be hit while the panel is covering it or still animating in/out.
- */
-@Composable
-private fun Panel(content: @Composable () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Nova.Black)
-            .pointerInput(Unit) { detectTapGestures { } },
-    ) { content() }
 }

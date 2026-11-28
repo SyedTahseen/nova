@@ -51,6 +51,9 @@ object Motion {
     const val Long = 450
     const val Overlap = 90
 
+    /** Screen-to-screen fade. Outrun uses 700; lower this if it feels slow. */
+    const val Axis = 700
+
     val Standard = FastOutSlowInEasing
     val Enter = LinearOutSlowInEasing
     val Exit = FastOutLinearInEasing
@@ -114,7 +117,15 @@ fun panelExit(): ExitTransition =
     slideOutVertically(tween(Motion.Medium, easing = Motion.Standard)) { it } +
         fadeOut(tween(Motion.Medium, delayMillis = Motion.Short / 2, easing = Motion.Exit))
 
-/** Swap between two full screens that are not parent/child (Home <-> Connected). */
+/**
+ * Navigation between Home / Settings / Regions. Same as Outrun's axisTransition: the old screen and
+ * the new one cross-fade over [Motion.Axis]. Nothing is stacked, one screen exists at a time.
+ */
+fun axisTransition(): ContentTransform = ContentTransform(
+    fadeIn(tween(Motion.Axis)), fadeOut(tween(Motion.Axis)), 0f, SizeTransform(clip = false),
+)
+
+/** Swap between Home and Connected (same level, so a shorter fade). */
 fun screenTransition(): ContentTransform = ContentTransform(
     fadeIn(tween(Motion.Medium, delayMillis = Motion.Overlap, easing = Motion.Enter)),
     fadeOut(tween(Motion.Short, easing = Motion.Exit)),

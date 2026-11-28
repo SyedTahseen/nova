@@ -1,5 +1,7 @@
 package com.novavpn.app.ui.map
 
+import kotlinx.coroutines.delay
+import android.os.SystemClock
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -67,6 +69,9 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
+/** Slightly longer than the panel exit animation (Motion.Medium + its fade delay). */
+private const val PANEL_EXIT_MS = 420L
+
 private const val SPAN_LON = 104.0 // degrees of longitude visible across the screen width
 
 private fun merc(lat: Double): Double {
@@ -121,6 +126,18 @@ private fun buildPaths(data: WorldGeo.MapData): MapPaths {
 }
 
 /**
+ * Home is now swapped out when Settings/Regions open, so the map is rebuilt every time Home comes back.
+ * Parsing world.bin and building the path is expensive, so do it once per process.
+ */
+private object MapPathsCache {
+    @Volatile private var cached: MapPaths? = null
+    fun get(context: android.content.Context): MapPaths =
+        cached ?: synchronized(this) {
+            cached ?: buildPaths(WorldGeo.load(context.applicationContext)).also { cached = it }
+        }
+}
+
+/**
  * Dark map backdrop with country borders, a square grid, a lime marker for the selected region and a
  * floating label pill. The camera glides to the selected region whenever it changes.
  */
@@ -134,10 +151,27 @@ fun WorldMap(
     overlayOpen: Boolean = false,
 ) {
     val context = LocalContext.current
-    val paths = remember { buildPaths(WorldGeo.load(context)) }
+    val paths = remember { MapPathsCache.get(context) }
 
-    val cLon by animateFloatAsState((selected?.lon ?: 10.0).toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lon")
-    val cLat by animateFloatAsState((selected?.lat ?: 25.0).toFloat(), tween(900, easing = FastOutSlowInEasing), label = "lat")
+    // Redrawing the whole world every frame is the most expensive thing in the app. If the camera moved
+    // while a panel (Regions/Settings) is sliding away, both would fight for frames and the panel
+    // animation would stutter. So the camera waits until the panel has left, then glides.
+    val closedAt = remember { longArrayOf(0L) }
+    LaunchedEffect(overlayOpen) { if (!overlayOpen) closedAt[0] = SystemClock.uptimeMillis() }
+    val targetLon = (selected?.lon ?: 10.0).toFloat()
+    val targetLat = (selected?.lat ?: 25.0).toFloat()
+    var camLon by remember { mutableStateOf(targetLon) }
+    var camLat by remember { mutableStateOf(targetLat) }
+    LaunchedEffect(targetLon, targetLat, overlayOpen) {
+        if (!overlayOpen) {
+            val wait = closedAt[0] + PANEL_EXIT_MS - SystemClock.uptimeMillis()
+            if (wait > 0) delay(wait)
+            camLon = targetLon
+            camLat = targetLat
+        }
+    }
+    val cLon by animateFloatAsState(camLon, tween(900, easing = FastOutSlowInEasing), label = "lon")
+    val cLat by animateFloatAsState(camLat, tween(900, easing = FastOutSlowInEasing), label = "lat")
 
     // Read only inside the marker canvas so the pulse doesn't redraw the whole map.
     val pulse = rememberInfiniteTransition(label = "pulse")
@@ -167,7 +201,13 @@ fun WorldMap(
             }
         }
     }
-    LaunchedEffect(selected?.id, overlayOpen) { if (!overlayOpen) recenter() }
+    LaunchedEffect(selected?.id, overlayOpen) {
+        if (!overlayOpen) {
+            val wait = closedAt[0] + PANEL_EXIT_MS - SystemClock.uptimeMillis()
+            if (wait > 0) delay(wait)
+            recenter()
+        }
+    }
 
     // Leaving the app: snap back so it reopens on the selected region.
     val lifecycleOwner = LocalLifecycleOwner.current
