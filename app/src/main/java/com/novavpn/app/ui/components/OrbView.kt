@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.novavpn.app.ui.theme.Nova
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 
 /**
@@ -69,40 +70,53 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
             center = c,
         )
 
-        // Swirl strips: broad translucent bands (not thin lines), clipped to the sphere.
-        // Their curves bend in only to ~0.5r, so the middle stays dark behind the status text.
+        // Smoke wisps. Each wisp has a life: it fades in at a random spot inside the sphere, drifts and curls
+        // while it spreads out, then fades away; the next life starts somewhere else. Nothing is a fixed ring.
         val clip = Path().apply { addOval(Rect(c, r)) }
         clipPath(clip) {
-            val count = 12
+            val tau = 2f * PI.toFloat()
+            val count = 10
             for (i in 0 until count) {
-                // Free drift, not rotation: every strip wanders on its own with a few slow sine waves.
-                // Frequencies are whole numbers of cycles per loop, so the animation repeats without a jump.
-                val f = i * 1.3f
-                val a0 = i * (2f * PI.toFloat() / count)
-                val ph = a0 + 0.8f * sin(t + f) + 0.45f * sin(3f * t + 2.1f * f)
-                val span = 2.5f + 0.7f * sin(2f * t + 0.9f * f)                  // how far round the rim it reaches
+                val n = 2 + i % 3                              // 2–4 lives per loop (≈12–24 s each at normal speed)
+                val x = n * t / tau + i * 0.37f
+                val u = x - floor(x)                           // 0..1 progress through this life
+                val id = ((floor(x).toInt() % n) + n) % n      // which life: repeats every loop, so no jump at the seam
+                val env = sin(PI.toFloat() * u).let { it * it } // fade in, fade out
+                if (env < 0.01f) continue
 
-                fun pt(a: Float, k: Float) = Offset(c.x + cos(a) * r * k, c.y + sin(a) * r * k)
+                // where this life happens (random per wisp and life)
+                val ang0 = rnd(i, id, 1) * tau
+                val rad0 = 0.5f + 0.4f * rnd(i, id, 2)
+                val dirA = rnd(i, id, 3) * tau + 0.8f * (u - 0.5f)   // slowly turns while it lives
+                val driftA = rnd(i, id, 4) * tau
+                val len = r * (0.7f + 0.5f * rnd(i, id, 5))
+                val amp = r * (0.18f + 0.20f * rnd(i, id, 6))
+                val seed = rnd(i, id, 7) * tau
 
-                val s = pt(ph, 1.05f)
-                val c1 = pt(ph + 0.9f + 0.5f * sin(2f * t + 1.1f * f), 0.82f + 0.13f * sin(3f * t + 0.7f * f))
-                val c2 = pt(ph + 1.9f + 0.5f * cos(t + 1.9f * f), 0.70f + 0.13f * cos(2f * t + 1.3f * f))
-                val e = pt(ph + span, 1.05f)
+                val hx = c.x + cos(ang0) * r * rad0 + cos(driftA) * r * 0.5f * (u - 0.5f)
+                val hy = c.y + sin(ang0) * r * rad0 + sin(driftA) * r * 0.5f * (u - 0.5f)
+                val dx = cos(dirA); val dy = sin(dirA)
+                val px = -dy; val py = dx
 
-                val path = Path().apply {
-                    moveTo(s.x, s.y)
-                    cubicTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y)
+                // four points along the wisp, pushed sideways by a travelling wave -> an S that keeps curling
+                fun q(j: Int): Offset {
+                    val along = (j - 1.5f) * len / 3f
+                    val wob = amp * sin(tau * (u + 0.27f * j) + seed)
+                    return Offset(hx + dx * along + px * wob, hy + dy * along + py * wob)
                 }
-                val tint = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
-                val w = r * (0.15f + 0.04f * (i % 3)) * (0.85f + 0.30f * sin(2f * t + f))   // width slowly swells and thins
-                val br = 0.75f + 0.25f * sin(3f * t + 1.7f * f)                          // opacity slowly pulses
+                val q0 = q(0); val q1 = q(1); val q2 = q(2); val q3 = q(3)
+                val path = Path().apply {
+                    moveTo(q0.x, q0.y)
+                    cubicTo(q1.x, q1.y, q2.x, q2.y, q3.x, q3.y)
+                }
 
-                // feathered edge -> body -> brighter core, so the strip reads as translucent smoke
-                drawPath(path, tint.copy(alpha = 0.05f * br), style = Stroke(w * 1.5f, cap = StrokeCap.Round))
-                drawPath(path, tint.copy(alpha = 0.09f * br), style = Stroke(w, cap = StrokeCap.Round))
-                drawPath(path, tint.copy(alpha = (0.11f + 0.03f * (i % 3)) * br), style = Stroke(w * 0.45f, cap = StrokeCap.Round))
-                // fine line along the strip
-                drawPath(path, tint.copy(alpha = 0.22f * br), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
+                val tint = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
+                val w = r * (0.10f + 0.05f * rnd(i, id, 8)) * (0.7f + 0.9f * u)   // smoke spreads as it ages
+
+                drawPath(path, tint.copy(alpha = 0.07f * env), style = Stroke(w * 1.6f, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.12f * env), style = Stroke(w, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.16f * env), style = Stroke(w * 0.45f, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.28f * env), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
             }
 
             // Soft specular highlight
@@ -133,4 +147,10 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         }
 
     }
+}
+
+/** Repeatable pseudo-random number in 0..1 for a (wisp, life, slot) triple. */
+private fun rnd(i: Int, life: Int, slot: Int): Float {
+    val v = sin(i * 127.1f + life * 311.7f + slot * 74.7f) * 43758.547f
+    return v - floor(v)
 }
