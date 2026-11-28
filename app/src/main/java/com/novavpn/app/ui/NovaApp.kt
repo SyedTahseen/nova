@@ -71,6 +71,7 @@ fun NovaApp(
                     onOpenRegions = { showRegions = true },
                     onOpenSettings = { showSettings = true },
                     onAddServer = { openAddOnShow = true; showRegions = true },
+                    mapRecenterKey = showRegions to showSettings,
                     onConnect = {
                         VpnController.clearError()
                         selected?.let(onConnect)

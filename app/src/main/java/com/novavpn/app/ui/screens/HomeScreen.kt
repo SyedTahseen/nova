@@ -56,12 +56,14 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onAddServer: () -> Unit,
     onConnect: () -> Unit,
+    mapRecenterKey: Any? = null,
 ) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
         WorldMap(
             selected = selected,
             others = regions,
             onMarkerClick = onOpenRegions,
+            recenterKey = mapRecenterKey,
         )
 
         MenuPill(

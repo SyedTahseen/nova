@@ -4,6 +4,7 @@ import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -12,6 +13,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,12 +26,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -48,6 +56,8 @@ import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.PILL_OVERLAY_ALPHA
 import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.theme.Nova
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.ln
 import kotlin.math.roundToInt
@@ -65,11 +75,24 @@ private class Projection(
     val centerLon: Double,
     val centerLat: Double,
     val centerY: Float,
+    val panX: Float = 0f,
+    val panY: Float = 0f,
 ) {
     val scale = (width / Math.toRadians(SPAN_LON)).toFloat() // px per radian
 
-    fun x(lon: Double): Float = (width / 2f + Math.toRadians(lon - centerLon) * scale).toFloat()
-    fun y(lat: Double): Float = (centerY - (merc(lat) - merc(centerLat)) * scale).toFloat()
+    /** Longitude currently at the middle of the screen once the user's drag is applied. */
+    val viewLon: Double = centerLon - Math.toDegrees((panX / scale).toDouble())
+
+    /** Un-wrapped x, used for the grid so its phase never jumps. */
+    fun xRaw(lon: Double): Float = (width / 2f + panX + Math.toRadians(lon - centerLon) * scale).toFloat()
+
+    /** x of the copy of [lon] nearest to the middle of the screen, so markers survive wrapping around the globe. */
+    fun x(lon: Double): Float {
+        val wrapped = lon - 360.0 * Math.round((lon - viewLon) / 360.0)
+        return xRaw(wrapped)
+    }
+
+    fun y(lat: Double): Float = (centerY + panY - (merc(lat) - merc(centerLat)) * scale).toFloat()
 }
 
 /** Map geometry pre-built once in "unit space" (x = lon in radians, y = -mercator), so each frame is just a transform. */
@@ -103,6 +126,8 @@ fun WorldMap(
     others: List<Region>,
     onMarkerClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Change this value to snap the map back to the selected region (e.g. when returning from another screen). */
+    recenterKey: Any? = null,
 ) {
     val context = LocalContext.current
     val paths = remember { buildPaths(WorldGeo.load(context)) }
@@ -121,13 +146,49 @@ fun WorldMap(
 
     val density = LocalDensity.current
 
+    // User drag offset in px. Double tap, a new selection, or coming back from another screen eases it to zero.
+    var panX by remember { mutableStateOf(0f) }
+    var panY by remember { mutableStateOf(0f) }
+    val scope = rememberCoroutineScope()
+    var recenterJob by remember { mutableStateOf<Job?>(null) }
+    fun recenter() {
+        recenterJob?.cancel()
+        recenterJob = scope.launch {
+            val fx = panX
+            val fy = panY
+            if (fx == 0f && fy == 0f) return@launch
+            animate(0f, 1f, animationSpec = tween(600, easing = FastOutSlowInEasing)) { t, _ ->
+                panX = fx * (1f - t)
+                panY = fy * (1f - t)
+            }
+        }
+    }
+    LaunchedEffect(selected?.id, recenterKey) { recenter() }
+
     BoxWithConstraints(modifier.fillMaxSize().background(Nova.Ocean)) {
         val wPx = with(density) { maxWidth.toPx() }
         val hPx = with(density) { maxHeight.toPx() }
-        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.34f)
+        val proj = Projection(wPx, cLon.toDouble(), cLat.toDouble(), hPx * 0.34f, panX, panY)
 
-        // Map layer
-        Canvas(Modifier.fillMaxSize()) {
+        // Map layer (drag to move, double tap to recenter)
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(onDoubleTap = { recenter() })
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { recenterJob?.cancel() },
+                        onDrag = { change, drag ->
+                            change.consume()
+                            val limY = size.height * 0.45f
+                            panX += drag.x
+                            panY = (panY + drag.y).coerceIn(-limY, limY)
+                        },
+                    )
+                },
+        ) {
             drawGrid(proj)
             drawLand(paths, proj)
 
@@ -201,7 +262,7 @@ fun WorldMap(
 
 private fun DrawScope.drawGrid(proj: Projection) {
     val step = 30.dp.toPx()
-    val ox = proj.x(0.0) % step
+    val ox = proj.xRaw(0.0) % step
     val oy = proj.y(0.0) % step
     var x = ox
     while (x < size.width) {
@@ -218,16 +279,14 @@ private fun DrawScope.drawGrid(proj: Projection) {
 private fun DrawScope.drawLand(paths: MapPaths, proj: Projection) {
     val s = proj.scale
     val halfSpan = SPAN_LON / 2
-    // Also draw a wrapped copy when the view crosses the antimeridian.
-    val shifts = buildList {
-        add(0)
-        if (proj.centerLon - halfSpan < -180) add(-1)
-        if (proj.centerLon + halfSpan > 180) add(1)
+    // Draw every wrapped copy of the world that is at least partly on screen.
+    val shifts = (-2..2).filter { k ->
+        proj.viewLon + halfSpan > -180.0 + 360.0 * k && proj.viewLon - halfSpan < 180.0 + 360.0 * k
     }
-    val ty = proj.centerY + (merc(proj.centerLat) * s).toFloat() // screen y = ty + (-merc(lat)) * s
+    val ty = proj.centerY + proj.panY + (merc(proj.centerLat) * s).toFloat() // screen y = ty + (-merc(lat)) * s
 
     for (k in shifts) {
-        val tx = (proj.width / 2f + (k * 2.0 * PI - Math.toRadians(proj.centerLon)) * s).toFloat()
+        val tx = (proj.width / 2f + proj.panX + (k * 2.0 * PI - Math.toRadians(proj.centerLon)) * s).toFloat()
         withTransform({
             translate(left = tx, top = ty)
             scale(scaleX = s, scaleY = s, pivot = Offset.Zero)
