@@ -177,3 +177,49 @@ fun CloseIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
         drawLine(color, Offset(w * 0.74f, h * 0.26f), Offset(w * 0.26f, h * 0.74f), sw, StrokeCap.Round)
     }
 }
+
+/** Lightning bolt – the flash button. [filled] when the torch is on. */
+@Composable
+fun FlashIcon(color: Color, filled: Boolean = false, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.58f, h * 0.08f)
+            lineTo(w * 0.24f, h * 0.56f)
+            lineTo(w * 0.48f, h * 0.56f)
+            lineTo(w * 0.40f, h * 0.92f)
+            lineTo(w * 0.76f, h * 0.42f)
+            lineTo(w * 0.52f, h * 0.42f)
+            close()
+        }
+        if (filled) drawPath(path, color)
+        else drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+/** Picture frame with a mountain and sun – the album button. */
+@Composable
+fun AlbumIcon(color: Color, modifier: Modifier = Modifier.size(22.dp)) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = 2.dp.toPx()
+        drawRoundRect(
+            color,
+            topLeft = Offset(w * 0.1f, h * 0.18f),
+            size = Size(w * 0.8f, h * 0.64f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.12f),
+            style = Stroke(sw, join = StrokeJoin.Round),
+        )
+        drawCircle(color, radius = w * 0.07f, center = Offset(w * 0.36f, h * 0.4f))
+        val hills = Path().apply {
+            moveTo(w * 0.12f, h * 0.76f)
+            lineTo(w * 0.42f, h * 0.52f)
+            lineTo(w * 0.62f, h * 0.68f)
+            lineTo(w * 0.72f, h * 0.6f)
+            lineTo(w * 0.88f, h * 0.74f)
+        }
+        drawPath(hills, color, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}

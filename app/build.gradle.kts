@@ -100,6 +100,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // QR scanning for "Add server -> QR code" (Google code scanner, no camera permission needed).
-    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    // In-app QR scanner: CameraX preview + ML Kit (bundled model, works offline) for camera frames and album images.
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }

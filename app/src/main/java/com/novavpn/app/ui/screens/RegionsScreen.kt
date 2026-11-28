@@ -98,7 +98,7 @@ import com.novavpn.app.ui.components.PlusIcon
 import com.novavpn.app.ui.components.SearchIcon
 import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.chipSurface
-import com.novavpn.app.ui.scanQrCode
+import com.novavpn.app.ui.QrScannerDialog
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaMenu
 
@@ -133,6 +133,7 @@ fun RegionsScreen(
     var subUrl by rememberSaveable { mutableStateOf("") }
     var subError by remember { mutableStateOf<String?>(null) }
     var showManual by rememberSaveable { mutableStateOf(false) }
+    var showScanner by rememberSaveable { mutableStateOf(false) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
 
     // Closes the search field first; a second Back closes the screen (handled in NovaApp).
@@ -247,7 +248,7 @@ fun RegionsScreen(
             onCloseSearch = { searching = false; query = "" },
             onSubscription = { subUrl = ""; subError = null; showSub = true },
             onClipboard = { handleImport(clipboard.getText()?.text.orEmpty()) },
-            onQr = { scanQrCode(context, onResult = ::handleImport, onError = ::toast) },
+            onQr = { showScanner = true },
             onManual = { showManual = true },
         )
 
@@ -291,6 +292,13 @@ fun RegionsScreen(
 
             item { Spacer(Modifier.navigationBarsPadding()) }
         }
+    }
+
+    if (showScanner) {
+        QrScannerDialog(
+            onResult = { showScanner = false; handleImport(it) },
+            onClose = { showScanner = false },
+        )
     }
 
     if (showSub) {
