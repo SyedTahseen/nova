@@ -34,7 +34,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
     val t by infinite.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween((36000 / speed).toInt(), easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween((48000 / speed).toInt(), easing = LinearEasing)),
         label = "t",
     )
 
@@ -59,7 +59,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         drawCircle(
             brush = Brush.radialGradient(
                 0f to Nova.OrbDeep,
-                0.5f to Nova.OrbMid,
+                0.58f to Nova.OrbMid,
                 0.86f to Nova.OrbBright,
                 1f to Nova.OrbGlow,
                 center = c,
@@ -80,8 +80,8 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
                 fun pt(a: Float, k: Float) = Offset(c.x + cos(a) * r * k, c.y + sin(a) * r * k)
 
                 val s = pt(ph, 1.03f)
-                val c1 = pt(ph + 0.9f, 0.62f + 0.18f * sin(t * 2f + i))
-                val c2 = pt(ph + 1.9f, 0.46f + 0.18f * cos(t * 1.5f + i))
+                val c1 = pt(ph + 0.9f, 0.70f + 0.15f * sin(t * 2f + i))
+                val c2 = pt(ph + 1.9f, 0.58f + 0.15f * cos(t * 1.5f + i))
                 val e = pt(ph + 2.8f, 1.03f)
 
                 val path = Path().apply {
