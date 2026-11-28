@@ -4,6 +4,9 @@ import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,21 +30,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -92,6 +81,11 @@ import com.novavpn.app.ui.components.NovaIconPill
 import com.novavpn.app.ui.components.NovaDropdownMenu
 import com.novavpn.app.ui.components.NovaMenuBack
 import com.novavpn.app.ui.components.NovaMenuItem
+import com.novavpn.app.ui.components.NovaMenuPages
+import com.novavpn.app.ui.Motion
+import com.novavpn.app.ui.Press
+import com.novavpn.app.ui.fadeTransition
+import com.novavpn.app.ui.pressable
 import com.novavpn.app.ui.components.NovaSubMenuItem
 import com.novavpn.app.ui.components.NovaTextField
 import com.novavpn.app.ui.components.SectionHeader
@@ -120,8 +114,6 @@ fun RegionsScreen(
     onSelect: (Region) -> Unit,
     onMoreRegions: () -> Unit,
     startWithAdd: Boolean = false,
-    /** True while the screen is still sliding in: the list is left empty and fades in afterwards. */
-    deferList: Boolean = false,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -158,8 +150,7 @@ fun RegionsScreen(
     }
 
     val q = query.trim().lowercase()
-    val source: List<Region> = if (deferList) emptyList<Region>() else regions
-    val filtered = if (q.isEmpty()) source else source.filter {
+    val filtered = if (q.isEmpty()) regions else regions.filter {
         it.label.lowercase().contains(q) || it.code.lowercase() == q ||
             it.id.lowercase().contains(q) || it.group.lowercase().contains(q) ||
             it.protocolName.lowercase().contains(q)
@@ -176,9 +167,10 @@ fun RegionsScreen(
     val customCount = regions.count { it.custom }
 
     @Composable
-    fun ServerRow(r: Region) {
+    fun ServerRow(r: Region, modifier: Modifier = Modifier) {
         RegionRow(
             r, r.id == selectedId, pings[r.id],
+            modifier = modifier,
             onClick = { onSelect(r) },
             onCopy = { clipboard.setText(AnnotatedString(r.link)); toast("Link copied") },
             onDelete = if (r.custom) ({ vm.deleteServer(r.id); toast("Server removed") }) else null,
@@ -258,9 +250,8 @@ fun RegionsScreen(
             onManual = { showManual = true },
         )
 
-        val listAlpha by animateFloatAsState(if (deferList) 0f else 1f, tween(220), label = "listAlpha")
         LazyColumn(
-            Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = listAlpha },
+            Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -269,9 +260,7 @@ fun RegionsScreen(
                 item { Spacer(Modifier.height(4.dp)) }
             }
 
-            if (deferList) {
-                // nothing yet
-            } else if (regions.isEmpty()) {
+            if (regions.isEmpty()) {
                 item {
                     EmptyStateCard(
                         title = "No servers yet",
@@ -296,7 +285,7 @@ fun RegionsScreen(
                 if (section.title != null) {
                     item(key = "header-${section.title}") { SectionHeader(section.title, section.items.size) }
                 }
-                items(section.items, key = { it.id }) { r -> ServerRow(r) }
+                items(section.items, key = { it.id }) { r -> ServerRow(r, Modifier.animateItem()) }
             }
 
             item { Spacer(Modifier.navigationBarsPadding()) }
@@ -444,7 +433,18 @@ private fun RegionsHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (searching) {
+        AnimatedContent(
+            targetState = searching,
+            modifier = Modifier.weight(1f),
+            transitionSpec = { fadeTransition() },
+            label = "regionsHeader",
+        ) { isSearching ->
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+        if (isSearching) {
             val focus = remember { FocusRequester() }
             val keyboard = LocalSoftwareKeyboardController.current
             LaunchedEffect(Unit) { focus.requestFocus() }
@@ -474,8 +474,7 @@ private fun RegionsHeader(
                 Box(
                     Modifier
                         .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable(onClickLabel = "Close search", role = Role.Button, onClick = onCloseSearch),
+                        .pressable(CircleShape, Press.Small, label = "Close search", onClick = onCloseSearch),
                     contentAlignment = Alignment.Center,
                 ) { CloseIcon(Nova.White, Modifier.size(18.dp)) }
             }
@@ -501,27 +500,20 @@ private fun RegionsHeader(
                 }
             }
         }
+        }
+        }
 
         Box {
             NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             NovaDropdownMenu(
                 expanded = moreOpen,
+                // The page is reset when the menu OPENS (see the pill above), never while it is fading out,
+                // otherwise the menu flashes its root page during the exit animation.
                 onDismissRequest = { moreOpen = false },
             ) {
-                // The page is reset when the menu is next opened, so it does not flip back while fading out.
                 fun close(block: () -> Unit): () -> Unit = { moreOpen = false; block() }
 
-                AnimatedContent(
-                    targetState = page,
-                    transitionSpec = {
-                        (fadeIn(tween(180, delayMillis = 70)))
-                            .togetherWith(fadeOut(tween(80)))
-                            .using(SizeTransform(clip = true) { _, _ -> tween(240, easing = FastOutSlowInEasing) })
-                    },
-                    label = "menuPage",
-                ) { p ->
-                Column(Modifier.fillMaxWidth()) {
-                when (p) {
+                NovaMenuPages(page, order = { if (it == "root") 0 else 1 }) { p -> when (p) {
                     "sort" -> {
                         NovaMenuBack("Sort") { page = "root" }
                         NovaMenuItem("Default order", checked = menu.sort == SortMode.Default, onClick = close { menu.onSort(SortMode.Default) })
@@ -561,9 +553,7 @@ private fun RegionsHeader(
                         NovaSubMenuItem("Group by") { page = "group" }
                         if (menu.custom > 0) NovaSubMenuItem("Delete", color = Nova.Red) { page = "delete" }
                     }
-                }
-                }
-                }
+                } }
             }
         }
     }
@@ -733,14 +723,13 @@ private fun Banner(regions: List<Region>, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .height(213.dp)
-            .clip(shape)
+            .pressable(shape, Press.Card, onClick = onClick)
             .background(
                 Brush.horizontalGradient(
                     0f to Nova.BannerBase,
                     1f to Nova.BannerTint,
                 ),
-            )
-            .clickable(onClick = onClick),
+            ),
     ) {
         // Orb peeking in from the right edge
         OrbView(
@@ -808,48 +797,39 @@ private fun RegionRow(
     selected: Boolean,
     pingMs: Int?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onCopy: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
     val shape = NovaShapes.Pill
-    val bg = if (selected) Nova.Lime else Nova.Card
+    val bg by animateColorAsState(if (selected) Nova.Lime else Nova.Card, tween(Motion.Medium, easing = Motion.Standard), label = "rowBg")
+    val rowBorder by animateColorAsState(if (selected) Nova.Lime else Nova.CardBorder, tween(Motion.Medium, easing = Motion.Standard), label = "rowBorder")
+    val nameColor by animateColorAsState(
+        if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f), tween(Motion.Medium), label = "rowName",
+    )
     var menuOpen by remember { mutableStateOf(false) }
     val hasMenu = onCopy != null || onDelete != null
-    val haptic = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    // Row sinks slightly while pressed and while its menu is open, so the long press feels acknowledged.
-    val pressScale by animateFloatAsState(
-        if (pressed || menuOpen) 0.97f else 1f,
-        tween(160, easing = FastOutSlowInEasing),
-        label = "rowPress",
-    )
 
-    Box {
+    Box(modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
-                .clip(shape)
-                .background(bg)
-                .then(if (selected) Modifier else Modifier.border(1.dp, Nova.CardBorder, shape))
-                .combinedClickable(
-                    interactionSource = interaction,
-                    indication = LocalIndication.current,
-                    onClick = onClick,
-                    onLongClick = if (hasMenu) ({
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuOpen = true
-                    }) else null,
+                .pressable(
+                    shape, Press.Card,
+                    role = null,
+                    onLongClick = if (hasMenu) ({ menuOpen = true }) else null,
                     onLongClickLabel = if (hasMenu) "Server options" else null,
+                    onClick = onClick,
                 )
+                .background(bg)
+                .border(1.dp, rowBorder, shape)
                 .padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FlagBadge(region.code, 30, Modifier.padding(end = 12.dp))
             Text(
                 region.label,
-                color = if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f),
+                color = nameColor,
                 style = NovaType.Secondary,
                 modifier = Modifier.weight(1f),
             )

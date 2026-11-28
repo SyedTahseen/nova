@@ -4,7 +4,6 @@ import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,10 +28,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novavpn.app.ui.Press
 import com.novavpn.app.ui.components.ChevronIcon
 import com.novavpn.app.ui.components.NovaIconPill
 import com.novavpn.app.ui.components.SectionLabel
 import com.novavpn.app.ui.components.chipSurface
+import com.novavpn.app.ui.pressable
 import com.novavpn.app.ui.theme.Nova
 
 @Composable
@@ -85,10 +86,9 @@ private fun SettingsRow(title: String, subtitle: String, onClick: (() -> Unit)?)
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(shape)
+            .then(if (onClick != null) Modifier.pressable(shape, Press.Pill, onClick = onClick) else Modifier.clip(shape))
             .background(Nova.Card)
             .border(1.dp, Nova.CardBorder, shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(start = 20.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

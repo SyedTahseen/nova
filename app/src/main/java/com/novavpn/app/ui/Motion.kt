@@ -1,0 +1,155 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
+package com.novavpn.app.ui
+
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+
+/**
+ * One motion language for the whole app (ported from Outrun's Motion.kt).
+ *
+ * Rules of thumb:
+ *  - Things that appear use [Enter] (decelerate), things that leave use [Exit] (accelerate),
+ *    things that move or resize use [Standard].
+ *  - Leaving is always faster than arriving, so the UI never feels like it is waiting.
+ *  - Never use the Compose default animation specs for UI (they are springs and feel floaty).
+ */
+object Motion {
+    const val Fast = 120
+    const val Short = 200
+    const val Medium = 300
+    const val Long = 450
+    const val Overlap = 90
+
+    val Standard = FastOutSlowInEasing
+    val Enter = LinearOutSlowInEasing
+    val Exit = FastOutLinearInEasing
+}
+
+/** How far a pressed element shrinks. 1f = ripple only. */
+object Press {
+    const val Pill = 0.97f
+    const val Card = 0.985f
+    const val Small = 0.92f
+}
+
+/**
+ * Click handling with a springy press-in and a ripple.
+ *
+ * It must be the FIRST modifier of an element (before background / border / padding), so that the
+ * scale and the ripple apply to the whole element:
+ *
+ *     Modifier.pressable(NovaShapes.Pill, Press.Pill, onClick = ...).background(...).border(...)
+ */
+fun Modifier.pressable(
+    shape: Shape = RectangleShape,
+    pressedScale: Float = Press.Pill,
+    enabled: Boolean = true,
+    label: String? = null,
+    role: Role? = Role.Button,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
+    onClick: () -> Unit,
+): Modifier = composed {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && enabled) pressedScale else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium),
+        label = "pressScale",
+    )
+    this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .clip(shape)
+        .combinedClickable(
+            interactionSource = source,
+            indication = LocalIndication.current,
+            enabled = enabled,
+            onClickLabel = label,
+            role = role,
+            onLongClickLabel = onLongClickLabel,
+            onLongClick = onLongClick,
+            onClick = onClick,
+        )
+}
+
+// ---- transitions ---------------------------------------------------------------------------
+
+/** Full screen that rises over the current one (Settings, Regions). Pair with [panelExit]. */
+fun panelEnter(): EnterTransition =
+    slideInVertically(tween(Motion.Long, easing = Motion.Standard)) { it } +
+        fadeIn(tween(Motion.Short, easing = Motion.Enter))
+
+fun panelExit(): ExitTransition =
+    slideOutVertically(tween(Motion.Medium, easing = Motion.Standard)) { it } +
+        fadeOut(tween(Motion.Medium, delayMillis = Motion.Short / 2, easing = Motion.Exit))
+
+/** Swap between two full screens that are not parent/child (Home <-> Connected). */
+fun screenTransition(): ContentTransform = ContentTransform(
+    fadeIn(tween(Motion.Medium, delayMillis = Motion.Overlap, easing = Motion.Enter)),
+    fadeOut(tween(Motion.Short, easing = Motion.Exit)),
+    0f,
+    SizeTransform(clip = false),
+)
+
+/** Small content swap (a label, a header, a status line). */
+fun fadeTransition(): ContentTransform = ContentTransform(
+    fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)),
+    fadeOut(tween(Motion.Fast)),
+    0f,
+    SizeTransform(clip = false),
+)
+
+/** Text that changes in place but should not resize its neighbours. */
+fun statusTransition(): ContentTransform = ContentTransform(
+    fadeIn(tween(Motion.Medium, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)),
+    fadeOut(tween(Motion.Fast)),
+    0f,
+    SizeTransform(clip = false) { _, _ -> snap() },
+)
+
+/**
+ * Page change inside a popup menu: the new page slides a few dp in from the side it came from,
+ * the old one fades out, and the menu card animates to the new size.
+ */
+fun menuPageTransition(forward: Boolean): ContentTransform {
+    val dir = if (forward) 1 else -1
+    return ContentTransform(
+        fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)) +
+            slideInHorizontally(tween(Motion.Medium, easing = Motion.Standard)) { it / 6 * dir },
+        fadeOut(tween(Motion.Fast)) +
+            slideOutHorizontally(tween(Motion.Short, easing = Motion.Standard)) { -it / 8 * dir },
+        0f,
+        SizeTransform(clip = true) { _, _ -> tween(Motion.Medium, easing = Motion.Standard) },
+    )
+}

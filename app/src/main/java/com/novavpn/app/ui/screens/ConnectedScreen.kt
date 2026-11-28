@@ -2,12 +2,23 @@ package com.novavpn.app.ui.screens
 
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.mutableStateOf
+import com.novavpn.app.ui.Motion
+import com.novavpn.app.ui.Press
+import com.novavpn.app.ui.pressable
+import com.novavpn.app.ui.statusTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,11 +126,17 @@ fun ConnectedScreen(
                     speed = if (live) 1f else 4f,
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        statusText,
-                        color = if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
-                        style = NovaType.Status,
+                    val statusColor by animateColorAsState(
+                        if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
+                        tween(Motion.Long, easing = Motion.Standard), label = "statusColor",
                     )
+                    AnimatedContent(
+                        targetState = statusText,
+                        transitionSpec = { statusTransition() },
+                        label = "statusText",
+                    ) { text ->
+                        Text(text, color = statusColor, style = NovaType.Status)
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         formatElapsed(elapsedSec),
@@ -137,10 +154,9 @@ fun ConnectedScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(cardShape)
+                    .pressable(cardShape, Press.Card, onClick = onOpenRegions)
                     .background(Nova.Card.copy(alpha = 0.92f))
                     .border(1.dp, Nova.CardBorder, cardShape)
-                    .clickable(onClick = onOpenRegions)
                     .padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -162,9 +178,15 @@ fun ConnectedScreen(
                 }
             }
 
-            vpn.warning?.let {
+            var lastWarning by remember { mutableStateOf(vpn.warning) }
+            if (vpn.warning != null) lastWarning = vpn.warning
+            AnimatedVisibility(
+                visible = vpn.warning != null,
+                enter = fadeIn(tween(Motion.Short, easing = Motion.Enter)) + expandVertically(tween(Motion.Medium, easing = Motion.Standard)),
+                exit = fadeOut(tween(Motion.Fast)) + shrinkVertically(tween(Motion.Short, easing = Motion.Standard)),
+            ) {
                 Text(
-                    it,
+                    lastWarning.orEmpty(),
                     color = Nova.Orange,
                     style = NovaType.Caption,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 6.dp, end = 6.dp),
@@ -238,7 +260,7 @@ private fun SpeedBars(level: Int) {
     ) {
         for (i in 0 until 5) {
             val lit = i == level
-            val lift by animateFloatAsState(if (lit) 1f else 0f, tween(250), label = "lift$i")
+            val lift by animateFloatAsState(if (lit) 1f else 0f, tween(Motion.Medium, easing = Motion.Standard), label = "lift$i")
             Box(Modifier.weight(1f).fillMaxSize()) {
                 // hatch strip
                 Canvas(Modifier.fillMaxWidth().height(22.dp).align(Alignment.TopCenter)) {

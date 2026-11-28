@@ -2,22 +2,14 @@ package com.novavpn.app.ui
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,12 +27,6 @@ import com.novavpn.app.ui.screens.SettingsScreen
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.vpn.VpnController
 import com.novavpn.app.vpn.VpnStatus
-
-// Material "emphasized" curves: fast start that settles gently, and a quick, clean exit.
-private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
-private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
-private const val ENTER_MS = 420
-private const val EXIT_MS = 300
 
 @Composable
 fun NovaApp(
@@ -66,7 +52,12 @@ fun NovaApp(
     val inSession = vpn.status != VpnStatus.Disconnected
 
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
-        Crossfade(targetState = inSession, animationSpec = tween(450, easing = FastOutSlowInEasing), label = "root") { connected ->
+        AnimatedContent(
+            targetState = inSession,
+            modifier = Modifier.fillMaxSize(),
+            transitionSpec = { screenTransition() },
+            label = "root",
+        ) { connected ->
             if (connected) {
                 ConnectedScreen(
                     vpn = vpn,
@@ -94,9 +85,10 @@ fun NovaApp(
 
         AnimatedVisibility(
             visible = showSettings,
-            enter = slideInHorizontally(tween(ENTER_MS, easing = EmphasizedDecelerate)) { -it },
-            exit = slideOutHorizontally(tween(EXIT_MS, easing = EmphasizedAccelerate)) { -it },
+            enter = panelEnter(),
+            exit = panelExit(),
         ) {
+            Panel {
             SettingsScreen(
                 onBack = { showSettings = false },
                 onOpenRegions = { showRegions = true },
@@ -105,18 +97,15 @@ fun NovaApp(
                     Toast.makeText(context, "Re-testing servers…", Toast.LENGTH_SHORT).show()
                 },
             )
+            }
         }
 
         AnimatedVisibility(
             visible = showRegions,
-            enter = slideInVertically(tween(ENTER_MS, easing = EmphasizedDecelerate)) { it },
-            exit = slideOutVertically(tween(EXIT_MS, easing = EmphasizedAccelerate)) { it },
+            enter = panelEnter(),
+            exit = panelExit(),
         ) {
-            // Keep the heavy server list out of the first frames so the slide stays at full frame rate.
-            var listReady by remember { mutableStateOf(false) }
-            LaunchedEffect(transition.currentState) {
-                if (transition.currentState == EnterExitState.Visible) listReady = true
-            }
+            Panel {
             RegionsScreen(
                 vm = vm,
                 onSelect = { r ->
@@ -130,8 +119,22 @@ fun NovaApp(
                     Toast.makeText(context, "More regions coming soon", Toast.LENGTH_SHORT).show()
                 },
                 startWithAdd = openAddOnShow,
-                deferList = !listReady,
             )
+            }
         }
     }
+}
+
+/**
+ * Wrapper for a full-screen panel that slides over the app. Swallows touches so nothing underneath
+ * (the map, the connect slider) can be hit while the panel is covering it or still animating in/out.
+ */
+@Composable
+private fun Panel(content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Nova.Black)
+            .pointerInput(Unit) { detectTapGestures { } },
+    ) { content() }
 }

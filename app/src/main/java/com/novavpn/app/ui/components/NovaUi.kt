@@ -1,9 +1,11 @@
 package com.novavpn.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,42 +21,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.novavpn.app.ui.Motion
+import com.novavpn.app.ui.Press
+import com.novavpn.app.ui.menuPageTransition
+import com.novavpn.app.ui.pressable
 import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaSpace
@@ -70,9 +55,8 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clip(NovaShapes.Pill)
-            .background(Nova.Lime)
-            .clickable(role = Role.Button, onClick = onClick),
+            .pressable(NovaShapes.Pill, Press.Pill, onClick = onClick)
+            .background(Nova.Lime),
         contentAlignment = Alignment.Center,
     ) { Text(text, color = Nova.Black, style = NovaType.Button) }
 }
@@ -110,8 +94,8 @@ fun NovaIconPill(onClick: () -> Unit, label: String, width: Dp = 52.dp, icon: @C
     Box(
         Modifier
             .size(width = width, height = 48.dp)
-            .chipSurface(NovaShapes.Pill)
-            .clickable(onClickLabel = label, role = Role.Button, onClick = onClick),
+            .pressable(NovaShapes.Pill, Press.Pill, label = label, onClick = onClick)
+            .chipSurface(NovaShapes.Pill),
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon() }
@@ -152,10 +136,7 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 /**
  * The app's popup menu (three-dot, + and per-server menus). Same card surface as the rest of the app:
- * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Menu corners, no tonal tint.
- *
- * It is our own popup rather than Material's DropdownMenu so it can grow out of the button that opened it
- * (scale + fade from the anchor corner) and fade away quickly when dismissed.
+ * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Card-style rounded corners, no tonal tint.
  */
 @Composable
 fun NovaDropdownMenu(
@@ -165,88 +146,34 @@ fun NovaDropdownMenu(
     offset: DpOffset = DpOffset(0.dp, 6.dp),
     content: @Composable () -> Unit,
 ) {
-    val state = remember { MutableTransitionState(false) }
-    state.targetState = expanded
-    // Keep the popup alive until the exit animation has finished.
-    if (!state.currentState && !state.targetState) return
-
-    val density = LocalDensity.current
-    val marginPx = with(density) { 12.dp.roundToPx() }
-    val offX = with(density) { offset.x.roundToPx() }
-    val offY = with(density) { offset.y.roundToPx() }
-    var origin by remember { mutableStateOf(TransformOrigin(0f, 0f)) }
-
-    val positionProvider = remember(offX, offY, marginPx) {
-        object : PopupPositionProvider {
-            override fun calculatePosition(
-                anchorBounds: IntRect,
-                windowSize: IntSize,
-                layoutDirection: LayoutDirection,
-                popupContentSize: IntSize,
-            ): IntOffset {
-                val w = popupContentSize.width
-                val h = popupContentSize.height
-                // Horizontal: line up with the anchor's left edge, or its right edge if that would overflow.
-                var x = anchorBounds.left + offX
-                if (x + w > windowSize.width - marginPx) x = anchorBounds.right - offX - w
-                x = x.coerceIn(marginPx, maxOf(marginPx, windowSize.width - w - marginPx))
-                // Vertical: below the anchor, or above it if there is no room.
-                var y = anchorBounds.bottom + offY
-                var below = true
-                if (y + h > windowSize.height - marginPx) {
-                    val above = anchorBounds.top - offY - h
-                    if (above >= marginPx) {
-                        y = above
-                        below = false
-                    } else {
-                        y = maxOf(marginPx, windowSize.height - h - marginPx)
-                    }
-                }
-                val px = ((anchorBounds.center.x - x).toFloat() / w.coerceAtLeast(1)).coerceIn(0f, 1f)
-                origin = TransformOrigin(px, if (below) 0f else 1f)
-                return IntOffset(x, y)
-            }
-        }
-    }
-
-    val transition = updateTransition(state, label = "menu")
-    val scale by transition.animateFloat(
-        transitionSpec = { if (targetState) tween(240, easing = MenuEnterEasing) else tween(120, easing = FastOutLinearInEasing) },
-        label = "menuScale",
-    ) { if (it) 1f else 0.9f }
-    val alpha by transition.animateFloat(
-        transitionSpec = { if (targetState) tween(150) else tween(100) },
-        label = "menuAlpha",
-    ) { if (it) 1f else 0f }
-
-    Popup(
-        popupPositionProvider = positionProvider,
+    DropdownMenu(
+        expanded = expanded,
         onDismissRequest = onDismissRequest,
-        properties = PopupProperties(focusable = true),
+        modifier = modifier.defaultMinSize(minWidth = 220.dp),
+        offset = offset,
+        shape = NovaShapes.Menu,
+        containerColor = Nova.CardRaised,
+        tonalElevation = 0.dp,
+        shadowElevation = 12.dp,
+        border = BorderStroke(1.dp, Nova.CardBorder),
     ) {
-        Surface(
-            modifier = modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    this.alpha = alpha
-                    transformOrigin = origin
-                }
-                .width(MenuWidth),
-            shape = NovaShapes.Menu,
-            color = Nova.CardRaised,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-            border = BorderStroke(1.dp, Nova.CardBorder),
-        ) {
-            // Inner padding so the rounded corners never clip the first / last row.
-            Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
-        }
+        // Inner padding so the rounded corners never clip the first / last row.
+        Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
     }
 }
 
-private val MenuWidth = 240.dp
-private val MenuEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+/**
+ * Pages of one popup menu. Switching [page] slides/fades the content and animates the menu's size
+ * instead of jumping. [order] decides the direction: moving to a later page = forward.
+ */
+@Composable
+fun <T> NovaMenuPages(page: T, order: (T) -> Int, content: @Composable (T) -> Unit) {
+    AnimatedContent(
+        targetState = page,
+        transitionSpec = { menuPageTransition(forward = order(targetState) > order(initialState)) },
+        label = "menuPage",
+    ) { p -> Column { content(p) } }
+}
 
 private val MenuItemPadding = PaddingValues(horizontal = NovaSpace.Xl, vertical = NovaSpace.M)
 
@@ -337,11 +264,14 @@ fun NovaChipRow(options: List<String>, selected: String, onSelect: (String) -> U
             Box(
                 Modifier
                     .height(36.dp)
+                    .pressable(NovaShapes.Control, Press.Small, onClick = { onSelect(o) })
                     .chipSurface(NovaShapes.Control, sel)
-                    .clickable { onSelect(o) }
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(o, color = if (sel) Nova.Lime else Nova.White, style = NovaType.Caption) }
+            ) {
+                val textColor by animateColorAsState(if (sel) Nova.Lime else Nova.White, tween(Motion.Short), label = "chipText")
+                Text(o, color = textColor, style = NovaType.Caption)
+            }
         }
     }
 }

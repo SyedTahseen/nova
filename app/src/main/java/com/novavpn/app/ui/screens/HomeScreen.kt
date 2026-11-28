@@ -2,10 +2,23 @@ package com.novavpn.app.ui.screens
 
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.novavpn.app.ui.Motion
+import com.novavpn.app.ui.Press
+import com.novavpn.app.ui.pressable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,9 +93,16 @@ fun HomeScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp),
         ) {
-            if (error != null) {
+            // Keep the last message while it fades out so the text does not vanish mid-animation.
+            var lastError by remember { mutableStateOf(error) }
+            if (error != null) lastError = error
+            AnimatedVisibility(
+                visible = error != null,
+                enter = fadeIn(tween(Motion.Short, easing = Motion.Enter)) + expandVertically(tween(Motion.Medium, easing = Motion.Standard)),
+                exit = fadeOut(tween(Motion.Fast)) + shrinkVertically(tween(Motion.Short, easing = Motion.Standard)),
+            ) {
                 Text(
-                    text = error,
+                    text = lastError.orEmpty(),
                     color = Nova.Red,
                     style = NovaType.Caption,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -141,8 +160,8 @@ private fun MenuPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(width = 64.dp, height = 48.dp)
-            .chipSurface(shape, fillAlpha = PILL_OVERLAY_ALPHA)
-            .clickable(onClickLabel = "Open settings", role = Role.Button, onClick = onClick),
+            .pressable(shape, Press.Pill, label = "Open settings", onClick = onClick)
+            .chipSurface(shape, fillAlpha = PILL_OVERLAY_ALPHA),
         contentAlignment = Alignment.Center,
     ) {
         HamburgerIcon(Nova.White, Modifier.size(22.dp))
@@ -155,15 +174,16 @@ private fun RegionChip(region: Region, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .height(48.dp)
+            .pressable(shape, Press.Pill, onClick = onClick)
             .chipSurface(shape, selected)
-            .clickable(onClick = onClick)
             .padding(start = 9.dp, end = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FlagBadge(region.code, size = 30)
+        val labelColor by animateColorAsState(if (selected) Nova.Lime else Nova.White, tween(Motion.Short), label = "chipLabel")
         Text(
             text = region.label,
-            color = if (selected) Nova.Lime else Nova.White,
+            color = labelColor,
             style = NovaType.Secondary,
             modifier = Modifier.padding(start = 12.dp),
         )
