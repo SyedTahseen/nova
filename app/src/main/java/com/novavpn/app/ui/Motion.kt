@@ -108,14 +108,23 @@ fun Modifier.pressable(
 
 // ---- transitions ---------------------------------------------------------------------------
 
-/** Full screen that rises over the current one (Settings, Regions). Pair with [panelExit]. */
-fun panelEnter(): EnterTransition =
-    slideInVertically(tween(Motion.Long, easing = Motion.Standard)) { it } +
-        fadeIn(tween(Motion.Short, easing = Motion.Enter))
-
-fun panelExit(): ExitTransition =
-    slideOutVertically(tween(Motion.Medium, easing = Motion.Standard)) { it } +
-        fadeOut(tween(Motion.Medium, delayMillis = Motion.Short / 2, easing = Motion.Exit))
+/**
+ * A screen that slides over the current one and slides back out when closed.
+ * [fromLeft] = Settings (opened from the hamburger at the top left); otherwise it rises from the bottom (Regions).
+ *
+ * Entering: the new screen is drawn on top and the old one stays put underneath.
+ * Leaving: the screen being closed stays on top (zIndex) while it slides away to reveal the one below.
+ */
+fun panelTransition(entering: Boolean, fromLeft: Boolean): ContentTransform =
+    if (entering) {
+        val enter = if (fromLeft) slideInHorizontally(tween(Motion.Long, easing = Motion.Standard)) { -it }
+        else slideInVertically(tween(Motion.Long, easing = Motion.Standard)) { it }
+        ContentTransform(enter, ExitTransition.None, 1f, SizeTransform(clip = false))
+    } else {
+        val exit = if (fromLeft) slideOutHorizontally(tween(Motion.Medium, easing = Motion.Standard)) { -it }
+        else slideOutVertically(tween(Motion.Medium, easing = Motion.Standard)) { it }
+        ContentTransform(EnterTransition.None, exit, -1f, SizeTransform(clip = false))
+    }
 
 /**
  * Navigation between Home / Settings / Regions. Same as Outrun's axisTransition: the old screen and

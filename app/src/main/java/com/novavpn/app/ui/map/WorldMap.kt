@@ -1,6 +1,9 @@
 package com.novavpn.app.ui.map
 
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import android.os.SystemClock
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaType
@@ -130,11 +133,14 @@ private fun buildPaths(data: WorldGeo.MapData): MapPaths {
  * Parsing world.bin and building the path is expensive, so do it once per process.
  */
 private object MapPathsCache {
-    @Volatile private var cached: MapPaths? = null
-    fun get(context: android.content.Context): MapPaths =
-        cached ?: synchronized(this) {
-            cached ?: buildPaths(WorldGeo.load(context.applicationContext)).also { cached = it }
-        }
+    @Volatile var cached: MapPaths? = null
+
+    /** Loads off the main thread the first time; every later call returns the cached copy at once. */
+    suspend fun load(context: android.content.Context): MapPaths {
+        cached?.let { return it }
+        val app = context.applicationContext
+        return withContext(Dispatchers.Default) { buildPaths(WorldGeo.load(app)) }.also { cached = it }
+    }
 }
 
 /**
@@ -151,7 +157,8 @@ fun WorldMap(
     overlayOpen: Boolean = false,
 ) {
     val context = LocalContext.current
-    val paths = remember { MapPathsCache.get(context) }
+    // null only during the very first load; the map shows its background and grid until it arrives.
+    val paths by produceState<MapPaths?>(MapPathsCache.cached, context) { value = MapPathsCache.load(context) }
 
     // Redrawing the whole world every frame is the most expensive thing in the app. If the camera moved
     // while a panel (Regions/Settings) is sliding away, both would fight for frames and the panel
@@ -248,7 +255,7 @@ fun WorldMap(
                 },
         ) {
             drawGrid(proj)
-            drawLand(paths, proj)
+            paths?.let { drawLand(it, proj) }
 
             others.forEach { r ->
                 if (r.id != selected?.id) {

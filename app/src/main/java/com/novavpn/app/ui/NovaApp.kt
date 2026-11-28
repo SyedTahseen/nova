@@ -24,7 +24,7 @@ import com.novavpn.app.ui.theme.Nova
 import com.novavpn.app.vpn.VpnController
 import com.novavpn.app.vpn.VpnStatus
 
-/** The screens of the app. Exactly one is shown at a time; changing it cross-fades (see [axisTransition]). */
+/** The screens of the app. Exactly one is shown at a time; Settings and Regions slide over the main screen. */
 private enum class Screen { Home, Connected, Settings, Regions }
 
 @Composable
@@ -72,8 +72,15 @@ fun NovaApp(
             targetState = screen,
             modifier = Modifier.fillMaxSize(),
             transitionSpec = {
-                val topLevel = setOf(Screen.Home, Screen.Connected)
-                if (initialState in topLevel && targetState in topLevel) screenTransition() else axisTransition()
+                when {
+                    // Closing a panel: it slides back the way it came, over the screen below.
+                    initialState == Screen.Regions -> panelTransition(entering = false, fromLeft = false)
+                    initialState == Screen.Settings -> panelTransition(entering = false, fromLeft = true)
+                    // Opening: Regions rises from the bottom, Settings comes in from the left.
+                    targetState == Screen.Regions -> panelTransition(entering = true, fromLeft = false)
+                    targetState == Screen.Settings -> panelTransition(entering = true, fromLeft = true)
+                    else -> screenTransition()
+                }
             },
             label = "screen",
         ) { s ->
