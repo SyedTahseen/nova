@@ -26,6 +26,10 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import com.novavpn.app.ui.theme.Nova
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.acos
+import kotlin.math.sqrt
+import kotlin.random.Random
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -33,8 +37,8 @@ import kotlin.math.sin
  * The glowing lime plasma sphere: dense dark smoky swirls flowing through intense yellow,
  * with a hot fresnel rim.
  *
- * API 33+  : a real-time AGSL fragment shader (domain-warped fractal noise, i.e. the standard
- *            "flowing smoke / plasma" technique) wrapped onto a sphere.
+ * API 33+  : a real-time AGSL fragment shader: warped-noise smoke plus ~40 soft, crossing
+ *            strands (arcs of circles wrapped on the sphere) with a dark calm centre.
  * API 26-32: Canvas fallback built from large soft, stretched, orbiting gradient blobs
  *            (soft smoke instead of thin lines).
  *
@@ -96,15 +100,20 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
 // API 33+ : AGSL shader
 // ---------------------------------------------------------------------------------------------
 
+private const val RING_COUNT = 40
+
 private const val ORB_AGSL = """
 uniform float2 uCenter;
 uniform float uRadius;
 uniform float uTime;
+uniform float4 uRingA[40];   // xyz = ring normal, w = height (small-circle offset)
+uniform float4 uRingB[40];   // xyz = in-plane axis, w = phase
+uniform float4 uRingC[40];   // x = width, y = amplitude, z = frequency
 
 float hash(float2 p) {
-    p = fract(p * float2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
+    float3 p3 = fract(float3(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 float vnoise(float2 p) {
@@ -129,57 +138,128 @@ float fbm(float2 p) {
     return v / 0.9375;
 }
 
+float2 rot(float2 v, float a) {
+    float c = cos(a);
+    float s = sin(a);
+    return float2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+
 half4 main(float2 fc) {
     float2 p = (fc - uCenter) / uRadius;
     float d = length(p);
     float aa = clamp((1.0 - d) * uRadius / 1.5, 0.0, 1.0);
     if (aa <= 0.0) { return half4(0.0); }
 
-    // Wrap the flow onto a sphere: coordinates stretch towards the limb.
     float z = sqrt(max(1.0 - d * d, 0.0));
-    float2 q = p / (0.55 + 0.45 * z);
+    float t = uTime * 0.10;
 
-    // Slow overall rotation of the whole body
-    float ang = uTime * 0.06;
-    float ca = cos(ang);
-    float sa = sin(ang);
-    q = float2(ca * q.x - sa * q.y, sa * q.x + ca * q.y);
+    // ---- Smoke: dense dark swirls (domain-warped noise) ----
+    float2 q = rot(p / (0.55 + 0.45 * z), uTime * 0.03);
+    float2 s = q * 1.4;
+    float2 w = float2(fbm(s + float2(0.0, t)), fbm(s + float2(5.2, 1.3 - t)));
+    float f = fbm(s + 2.5 * w + float2(0.0, t * 0.5));
+    float smoke = smoothstep(0.32, 0.68, f);
 
-    float t = uTime * 0.14;
+    // ---- Strands: soft arcs of circles wrapped on the sphere, crossing each other ----
+    float wx = fbm(p * 1.8 + float2(t * 0.3, 0.0)) - 0.5;
+    float wy = fbm(p * 1.8 + float2(9.1, t * 0.3)) - 0.5;
+    float3 P = float3(p.x + 0.12 * wx, p.y + 0.12 * wy, z + 0.06 * (wx - wy));
 
-    // Domain warping (warp the noise with noise, twice) = swirling smoke
-    float2 s = q * 1.5;
-    float2 w = float2(fbm(s + float2(0.0, t)),
-                      fbm(s + float2(5.2, 1.3 - t)));
-    float2 w2 = float2(fbm(s + 3.2 * w + float2(1.7, 9.2) + t * 0.7),
-                       fbm(s + 3.2 * w + float2(8.3, 2.8) - t * 0.7));
-    float f = fbm(s + 3.6 * w2);
+    float line = 0.0;
+    float glow = 0.0;
+    for (int i = 0; i < 40; i++) {
+        float4 A = uRingA[i];
+        float dist = abs(dot(P, A.xyz) - A.w);
+        float wd = uRingC[i].x;
+        if (dist < wd * 4.0) {
+            float4 B = uRingB[i];
+            float u = dot(P, B.xyz);
+            float m = smoothstep(0.5, 0.95, 0.5 + 0.5 * sin(u * uRingC[i].z + B.w));
+            float amp = uRingC[i].y * m;
+            float k = dist / wd;
+            line += exp(-k * k) * amp;
+            glow += exp(-k * k / 9.0) * amp;
+        }
+    }
 
-    float3 dark   = float3(0.10, 0.13, 0.00);
+    float3 dark   = float3(0.05, 0.065, 0.0);
+    float3 olive  = float3(0.50, 0.60, 0.02);
     float3 yellow = float3(0.90, 1.00, 0.16);
-    float3 hot    = float3(0.97, 1.00, 0.58);
+    float3 hot    = float3(0.97, 1.00, 0.62);
 
-    // Dense dark lanes vs intense yellow
-    float dens = smoothstep(0.30, 0.72, f);
-    float3 col = mix(dark, yellow, dens);
+    float edge = smoothstep(0.2, 1.0, d);
+    float centre = 0.35 + 0.65 * smoothstep(0.05, 0.8, d);   // quieter middle for the status text
 
-    // Soft bright smoke ribbons following the flow (ridged noise)
-    float rid = 1.0 - abs(2.0 * fbm(s * 1.6 + 3.0 * w2 + float2(t, -t)) - 1.0);
-    rid = pow(rid, 3.0);
-    col += hot * rid * (0.15 + 0.55 * dens);
+    float3 col = mix(dark, olive, pow(edge, 1.3));
+    col *= 0.25 + 0.75 * smoke;
+    col += (yellow * 0.5 - col) * (pow(edge, 3.5) * (0.4 + 0.6 * smoke));
 
-    // Keep the middle calmer/darker so the status text stays readable
-    col = mix(col * 0.55, col, smoothstep(0.05, 0.95, d));
+    float3 strand = float3(0.80, 1.00, 0.15);
+    col += strand * min(line, 1.0) * 0.6 * centre * (0.8 + 0.5 * smoke);
+    col += strand * glow * 0.10 * centre;
 
-    // Hot fresnel rim
-    float rim = pow(1.0 - z, 2.4);
-    col = mix(col, hot, clamp(rim * 1.15, 0.0, 1.0));
-    col += yellow * rim * 0.45;
+    float rim = pow(1.0 - z, 3.0);
+    col = mix(col, hot, clamp(rim * 0.9, 0.0, 1.0));
+    col += yellow * rim * 0.4;
 
     col = clamp(col, 0.0, 1.0);
     return half4(half3(col * aa), half(aa));
 }
 """
+
+/** Static random parameters for each strand (a ring on the sphere). Built once. */
+private class Ring(
+    val th: Float, val ph: Float, val sp: Float, val h: Float,
+    val wd: Float, val amp: Float, val fr: Float, val pc: Float, val ps: Float,
+)
+
+private val rings: List<Ring> = Random(7).let { rnd ->
+    List(RING_COUNT) { i ->
+        Ring(
+            th = acos(2f * rnd.nextFloat() - 1f),
+            ph = rnd.nextFloat() * 6.2832f,
+            sp = (0.04f + 0.07f * rnd.nextFloat()) * (if (i % 2 == 0) 1f else -1f),
+            h = (rnd.nextFloat() - 0.5f) * 1.1f,
+            wd = 0.016f + 0.022f * rnd.nextFloat(),
+            amp = 0.4f + 0.6f * rnd.nextFloat(),
+            fr = 2.5f + 2.5f * rnd.nextFloat(),
+            pc = rnd.nextFloat() * 6.28f,
+            ps = 0.3f + 0.4f * rnd.nextFloat(),
+        )
+    }
+}
+
+private val ringA = FloatArray(RING_COUNT * 4)
+private val ringB = FloatArray(RING_COUNT * 4)
+private val ringC = FloatArray(RING_COUNT * 4)
+
+/** Recomputes the strands' orientation for time [t] (cheap: 40 rings, once per frame). */
+private fun updateRings(t: Float) {
+    for (i in 0 until RING_COUNT) {
+        val r = rings[i]
+        val th = r.th + 0.35f * sin(t * 0.17f + i * 1.7f)
+        val ph = r.ph + t * r.sp
+        val nx = sin(th) * cos(ph)
+        val ny = sin(th) * sin(ph)
+        val nz = cos(th)
+        // e1 = normalize(n x axis), e2 = n x e1
+        val axX = if (abs(nz) < 0.9f) 0f else 1f
+        val axZ = if (abs(nz) < 0.9f) 1f else 0f
+        var e1x = ny * axZ
+        var e1y = nz * axX - nx * axZ
+        var e1z = -ny * axX
+        val l = sqrt(e1x * e1x + e1y * e1y + e1z * e1z).coerceAtLeast(1e-4f)
+        e1x /= l; e1y /= l; e1z /= l
+        val e2x = ny * e1z - nz * e1y
+        val e2y = nz * e1x - nx * e1z
+        val e2z = nx * e1y - ny * e1x
+
+        ringA[i * 4] = nx; ringA[i * 4 + 1] = ny; ringA[i * 4 + 2] = nz; ringA[i * 4 + 3] = r.h
+        ringB[i * 4] = e2x; ringB[i * 4 + 1] = e2y; ringB[i * 4 + 2] = e2z
+        ringB[i * 4 + 3] = r.pc + t * r.ps
+        ringC[i * 4] = r.wd; ringC[i * 4 + 1] = r.amp; ringC[i * 4 + 2] = r.fr
+    }
+}
 
 @RequiresApi(33)
 private fun createOrbShader(): Any = RuntimeShader(ORB_AGSL)
@@ -192,9 +272,13 @@ private fun DrawScope.drawShaderOrb(
     r: Float,
     t: Float,
 ) {
+    updateRings(t)
     shader.setFloatUniform("uCenter", c.x, c.y)
     shader.setFloatUniform("uRadius", r)
     shader.setFloatUniform("uTime", t)
+    shader.setFloatUniform("uRingA", ringA)
+    shader.setFloatUniform("uRingB", ringB)
+    shader.setFloatUniform("uRingC", ringC)
     drawCircle(brush = brush, radius = r + 2f, center = c)
 }
 
@@ -205,12 +289,13 @@ private fun DrawScope.drawShaderOrb(
 private fun DrawScope.drawFallbackOrb(c: Offset, r: Float, t: Float) {
     val clip = Path().apply { addOval(Rect(c, r)) }
     clipPath(clip) {
-        // Bright yellow body
+        // Dark body with an empty centre, warming to yellow at the edge
         drawCircle(
             brush = Brush.radialGradient(
-                0f to Nova.OrbMid,
-                0.7f to Nova.OrbBright,
-                1f to Nova.OrbGlow,
+                0.00f to Nova.OrbDeep,
+                0.60f to Nova.OrbDeep,
+                0.85f to Nova.OrbMid,
+                1.00f to Nova.OrbBright,
                 center = c,
                 radius = r,
             ),
@@ -218,19 +303,19 @@ private fun DrawScope.drawFallbackOrb(c: Offset, r: Float, t: Float) {
             center = c,
         )
 
-        // Big stretched blobs orbiting tangentially = swirling smoke
-        val count = 16
+        // Thin stretched glows sweeping tangentially around the outer ring = flowing strands
+        val count = 28
         for (i in 0 until count) {
-            val dir = if (i % 2 == 0) 1f else -1f
+            val dir = if (i % 3 == 0) -1f else 1f
             val fr = (i * 0.618f) % 1f
-            val orbit = r * (0.12f + 0.55f * fr)
-            val a = t * (0.14f + 0.05f * (i % 4)) * dir + i * 2.4f
+            val orbit = r * (0.50f + 0.42f * fr)
+            val a = t * (0.10f + 0.04f * (i % 4)) * dir + i * 2.4f
             val bc = Offset(c.x + cos(a) * orbit, c.y + sin(a) * orbit)
-            val br = r * (0.38f + 0.28f * ((i * 0.37f) % 1f))
+            val br = r * (0.22f + 0.16f * ((i * 0.37f) % 1f))
             val rot = a * (180f / PI.toFloat()) + 90f
-            val color = if (i % 3 == 0) Nova.Lime.copy(alpha = 0.40f) else Nova.OrbDeep.copy(alpha = 0.60f)
+            val color = Nova.Lime.copy(alpha = 0.16f + 0.22f * ((i * 0.29f) % 1f))
             rotate(rot, pivot = bc) {
-                scale(2.0f, 0.62f, pivot = bc) {
+                scale(0.28f, 2.6f, pivot = bc) {
                     drawCircle(
                         brush = Brush.radialGradient(
                             0f to color,
@@ -245,12 +330,11 @@ private fun DrawScope.drawFallbackOrb(c: Offset, r: Float, t: Float) {
             }
         }
 
-        // Calm dark core (text readability) fading into a hot rim
+        // Hot rim
         drawCircle(
             brush = Brush.radialGradient(
-                0.00f to Nova.OrbDeep.copy(alpha = 0.45f),
-                0.45f to Color.Transparent,
-                0.78f to Color.Transparent,
+                0.00f to Color.Transparent,
+                0.80f to Color.Transparent,
                 0.93f to Nova.Lime.copy(alpha = 0.55f),
                 1.00f to Nova.OrbGlow,
                 center = c,
