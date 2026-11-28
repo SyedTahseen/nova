@@ -13,10 +13,6 @@ concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # AndroidLibXrayLite release that provides libv2ray.aar (Xray-core inside). Change this one line to upgrade the core.
-  XRAY_LIB_TAG: v26.11.26
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,8 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p app/libs
-          gh release download "$XRAY_LIB_TAG" --repo 2dust/AndroidLibXrayLite --pattern 'libv2ray.aar' --dir app/libs
-          echo "Using AndroidLibXrayLite $XRAY_LIB_TAG"
+          gh release download --repo 2dust/AndroidLibXrayLite --pattern 'libv2ray.aar' --dir app/libs
           ls -l app/libs
 
       # Country borders for the map (Natural Earth). Skipped when app/src/main/assets/world.bin is committed.
