@@ -5,6 +5,7 @@ import com.novavpn.app.ui.theme.NovaType
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +41,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,7 +70,6 @@ import com.novavpn.app.vpn.VpnState
 import com.novavpn.app.vpn.VpnStatus
 import kotlinx.coroutines.delay
 import java.util.Locale
-import kotlin.math.ceil
 
 @Composable
 fun ConnectedScreen(
@@ -152,15 +155,15 @@ fun ConnectedScreen(
                 }
             }
 
-            // Location card
-            val cardShape = NovaShapes.Card
+            // Location card – same shape, padding and button as a server row (RegionRow): 74dp tall
+            val cardShape = NovaShapes.Pill
             Row(
                 Modifier
                     .fillMaxWidth()
                     .pressable(cardShape, Press.Card, onClick = onOpenRegions)
-                    .background(Nova.Card.copy(alpha = 0.92f))
+                    .background(Nova.Card)
                     .border(1.dp, Nova.CardBorder, cardShape)
-                    .padding(start = 32.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = 26.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -169,14 +172,16 @@ fun ConnectedScreen(
                     style = NovaType.BodyStrong,
                     modifier = Modifier.weight(1f),
                 )
+                val btnShape = NovaShapes.Control
                 Box(
                     Modifier
-                        .size(70.dp)
-                        .clip(NovaShapes.Pill)
-                        .border(1.dp, Nova.CardBorder, NovaShapes.Pill),
+                        .size(54.dp)
+                        .clip(btnShape)
+                        .background(Nova.CardRaised)
+                        .border(1.dp, Nova.CardBorder, btnShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChevronIcon(Nova.White, Modifier.size(28.dp))
+                    ChevronIcon(Nova.White, Modifier.size(22.dp))
                 }
             }
 
@@ -199,8 +204,8 @@ fun ConnectedScreen(
 
             // Speed cards
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SpeedCard("Download", speed.downMbps, DOWN_STEPS, Modifier.weight(1f))
-                SpeedCard("Upload", speed.upMbps, UP_STEPS, Modifier.weight(1f))
+                SpeedCard("Download", speed.downMbps, DOWN_REF, Modifier.weight(1f))
+                SpeedCard("Upload", speed.upMbps, UP_REF, Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(18.dp))
@@ -217,11 +222,15 @@ fun ConnectedScreen(
     }
 }
 
-private val DOWN_STEPS = floatArrayOf(5f, 15f, 30f, 60f, 100f)
-private val UP_STEPS = floatArrayOf(2f, 8f, 15f, 30f, 60f)
+/** Speed (Mb/s) that fills a bar when nothing faster has been seen recently; the scale grows if traffic exceeds it. */
+private const val DOWN_REF = 15f
+private const val UP_REF = 8f
+
+private const val BAR_COUNT = 5
+private const val BAR_MIN_FILL = 0.35f   // an idle bar still shows a short rounded stub, like the design
 
 @Composable
-private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: Modifier) {
+private fun SpeedCard(title: String, mbps: Float, refMbps: Float, modifier: Modifier) {
     val shape = NovaShapes.Card
     Column(
         modifier
@@ -233,8 +242,7 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
         Text(title, color = Nova.TextMuted, style = NovaType.CardTitle, modifier = Modifier.padding(start = 2.dp))
         Spacer(Modifier.height(29.dp))
 
-        val level = if (mbps < 0.05f) -1 else steps.indexOfFirst { mbps <= it }.let { if (it == -1) 4 else it }
-        SpeedBars(level)
+        SpeedBars(rememberSpeedHistory(mbps), refMbps)
 
         Spacer(Modifier.height(26.dp))
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(start = 2.dp)) {
@@ -253,22 +261,41 @@ private fun SpeedCard(title: String, mbps: Float, steps: FloatArray, modifier: M
     }
 }
 
-/** Resting heights of the five bars (dp), measured from the design – they are not all the same. */
-private val BAR_HEIGHTS = floatArrayOf(37f, 32f, 37f, 33f, 40f)
-
-/** Five rounded bars of different heights with a hatched strip above each; the bar for the current speed band lights up. */
+/** The last [BAR_COUNT] one-second samples of this card's own speed, oldest on the left, newest on the right. */
 @Composable
-private fun SpeedBars(level: Int) {
+private fun rememberSpeedHistory(mbps: Float): List<Float> {
+    val latest by rememberUpdatedState(mbps)
+    val history = remember { mutableStateListOf<Float>().apply { repeat(BAR_COUNT) { add(0f) } } }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            history.removeAt(0)
+            history.add(latest)
+        }
+    }
+    return history
+}
+
+/**
+ * Five columns. Each column is ONE meter: a hatched track (the empty part) with a rounded bar rising from the
+ * bottom (the filled part). The faster the sample, the taller the bar and the less hatch stays visible.
+ * The newest sample (right-most column) is lit.
+ */
+@Composable
+private fun SpeedBars(samples: List<Float>, refMbps: Float) {
+    val scale = maxOf(refMbps, samples.maxOrNull() ?: 0f)
     Row(
         Modifier.fillMaxWidth().height(58.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        for (i in 0 until 5) {
-            val lit = i == level
+        for (i in 0 until BAR_COUNT) {
+            val lit = i == BAR_COUNT - 1
+            val target = BAR_MIN_FILL + (1f - BAR_MIN_FILL) * (samples.getOrElse(i) { 0f } / scale).coerceIn(0f, 1f)
+            val fill by animateFloatAsState(target, tween(Motion.Medium, easing = Motion.Standard), label = "barFill$i")
             Box(Modifier.weight(1f).fillMaxSize()) {
-                // hatch strip (its lower part is hidden behind the bar)
-                Canvas(Modifier.fillMaxWidth().height(26.dp).align(Alignment.TopCenter)) {
-                    val r = 5.dp.toPx()
+                // hatched track over the whole column; the bar covers its lower part
+                Canvas(Modifier.fillMaxSize()) {
+                    val r = 9.dp.toPx()
                     val clip = Path().apply {
                         addRoundRect(
                             androidx.compose.ui.geometry.RoundRect(
@@ -290,12 +317,12 @@ private fun SpeedBars(level: Int) {
                         }
                     }
                 }
-                // bar – bottoms are aligned; the lit one only changes colour and glows
+                // filled part
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(BAR_HEIGHTS[i].dp)
+                        .fillMaxHeight(fill)
                         .then(
                             if (lit) Modifier.shadow(
                                 14.dp, NovaShapes.Small,
