@@ -75,29 +75,34 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         clipPath(clip) {
             val count = 12
             for (i in 0 until count) {
-                val dir = if (i % 2 == 0) 1f else -1f
-                val ph = t * (0.6f + (i % 5) * 0.18f) * dir + i * (2f * PI.toFloat() / count)
+                // Free drift, not rotation: every strip wanders on its own with a few slow sine waves.
+                // Frequencies are whole numbers of cycles per loop, so the animation repeats without a jump.
+                val f = i * 1.3f
+                val a0 = i * (2f * PI.toFloat() / count)
+                val ph = a0 + 0.8f * sin(t + f) + 0.45f * sin(3f * t + 2.1f * f)
+                val span = 2.5f + 0.7f * sin(2f * t + 0.9f * f)                  // how far round the rim it reaches
 
                 fun pt(a: Float, k: Float) = Offset(c.x + cos(a) * r * k, c.y + sin(a) * r * k)
 
-                val s = pt(ph, 1.03f)
-                val c1 = pt(ph + 0.9f, 0.80f + 0.12f * sin(t * 2f + i))
-                val c2 = pt(ph + 1.9f, 0.68f + 0.12f * cos(t * 1.5f + i))
-                val e = pt(ph + 2.8f, 1.03f)
+                val s = pt(ph, 1.05f)
+                val c1 = pt(ph + 0.9f + 0.5f * sin(2f * t + 1.1f * f), 0.82f + 0.13f * sin(3f * t + 0.7f * f))
+                val c2 = pt(ph + 1.9f + 0.5f * cos(t + 1.9f * f), 0.70f + 0.13f * cos(2f * t + 1.3f * f))
+                val e = pt(ph + span, 1.05f)
 
                 val path = Path().apply {
                     moveTo(s.x, s.y)
                     cubicTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y)
                 }
                 val tint = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
-                val w = r * (0.15f + 0.04f * (i % 3))        // band width: 15–23% of the radius
+                val w = r * (0.15f + 0.04f * (i % 3)) * (0.85f + 0.30f * sin(2f * t + f))   // width slowly swells and thins
+                val br = 0.75f + 0.25f * sin(3f * t + 1.7f * f)                          // opacity slowly pulses
 
                 // feathered edge -> body -> brighter core, so the strip reads as translucent smoke
-                drawPath(path, tint.copy(alpha = 0.05f), style = Stroke(w * 1.5f, cap = StrokeCap.Round))
-                drawPath(path, tint.copy(alpha = 0.09f), style = Stroke(w, cap = StrokeCap.Round))
-                drawPath(path, tint.copy(alpha = 0.11f + 0.03f * (i % 3)), style = Stroke(w * 0.45f, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.05f * br), style = Stroke(w * 1.5f, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.09f * br), style = Stroke(w, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = (0.11f + 0.03f * (i % 3)) * br), style = Stroke(w * 0.45f, cap = StrokeCap.Round))
                 // fine line along the strip
-                drawPath(path, tint.copy(alpha = 0.22f), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.22f * br), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
             }
 
             // Soft specular highlight
