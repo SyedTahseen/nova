@@ -190,7 +190,7 @@ fun WorldMap(
                 selected.label,
                 color = Nova.White,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 modifier = Modifier.padding(start = 10.dp),
             )
         }

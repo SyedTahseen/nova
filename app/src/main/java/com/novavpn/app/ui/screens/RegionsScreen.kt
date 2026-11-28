@@ -943,7 +943,7 @@ private fun RegionRow(
                 region.label,
                 color = if (selected) Nova.Black else Nova.White.copy(alpha = 0.78f),
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 modifier = Modifier.weight(1f),
             )
             if (pingMs != null) {
