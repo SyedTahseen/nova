@@ -834,7 +834,7 @@ private fun RegionRow(
             NovaDropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                offset = androidx.compose.ui.unit.DpOffset((-16).dp, 0.dp),
+                offset = androidx.compose.ui.unit.DpOffset(16.dp, 0.dp),
             ) {
                 onCopy?.let { NovaMenuItem("Copy link") { menuOpen = false; it() } }
                 onDelete?.let { NovaMenuItem("Delete", color = Nova.Red) { menuOpen = false; it() } }
