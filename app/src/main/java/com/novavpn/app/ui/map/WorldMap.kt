@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.novavpn.app.data.Region
 import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.PILL_OVERLAY_ALPHA
@@ -126,8 +130,8 @@ fun WorldMap(
     others: List<Region>,
     onMarkerClick: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Change this value to snap the map back to the selected region (e.g. when returning from another screen). */
-    recenterKey: Any? = null,
+    /** True while another screen is on top. The map keeps its position then and glides back when this turns false. */
+    overlayOpen: Boolean = false,
 ) {
     val context = LocalContext.current
     val paths = remember { buildPaths(WorldGeo.load(context)) }
@@ -163,7 +167,21 @@ fun WorldMap(
             }
         }
     }
-    LaunchedEffect(selected?.id, recenterKey) { recenter() }
+    LaunchedEffect(selected?.id, overlayOpen) { if (!overlayOpen) recenter() }
+
+    // Leaving the app: snap back so it reopens on the selected region.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                recenterJob?.cancel()
+                panX = 0f
+                panY = 0f
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     BoxWithConstraints(modifier.fillMaxSize().background(Nova.Ocean)) {
         val wPx = with(density) { maxWidth.toPx() }

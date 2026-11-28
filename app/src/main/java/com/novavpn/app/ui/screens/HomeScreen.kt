@@ -56,14 +56,14 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onAddServer: () -> Unit,
     onConnect: () -> Unit,
-    mapRecenterKey: Any? = null,
+    mapOverlayOpen: Boolean = false,
 ) {
     Box(Modifier.fillMaxSize().background(Nova.Black)) {
         WorldMap(
             selected = selected,
             others = regions,
             onMarkerClick = onOpenRegions,
-            recenterKey = mapRecenterKey,
+            overlayOpen = mapOverlayOpen,
         )
 
         MenuPill(
