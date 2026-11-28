@@ -3,7 +3,6 @@ package com.novavpn.app.ui.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
@@ -62,6 +61,7 @@ import com.novavpn.app.ui.Press
 import com.novavpn.app.ui.menuPageTransition
 import com.novavpn.app.ui.pressable
 import com.novavpn.app.ui.theme.Nova
+import com.novavpn.app.ui.theme.NovaMenu
 import com.novavpn.app.ui.theme.NovaShapes
 import com.novavpn.app.ui.theme.NovaSpace
 import com.novavpn.app.ui.theme.NovaType
@@ -155,12 +155,6 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 // --- dropdown menus -------------------------------------------------------------------------
 
-// Motion tokens for the menu morph (from transitions.dev "Menu dropdown": 250ms open, 150ms close,
-// smooth-out easing, scale 0.97 / 0.99).
-private val MenuEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-private const val MENU_OPEN_MS = 250
-private const val MENU_CLOSE_MS = 150
-
 /** Where the menu goes and which corner it grows from (the corner nearest its trigger). */
 private class MenuPositionProvider(
     private val offset: IntOffset,
@@ -234,7 +228,7 @@ fun NovaDropdownMenu(
         val provider = remember(offset, density) {
             MenuPositionProvider(
                 offset = with(density) { IntOffset(offset.x.roundToPx(), offset.y.roundToPx()) },
-                margin = with(density) { 8.dp.roundToPx() },
+                margin = with(density) { NovaMenu.ScreenMargin.roundToPx() },
             ) { o, size ->
                 if (o != origin) origin = o
                 if (size != anchorSize) anchorSize = size
@@ -248,25 +242,25 @@ fun NovaDropdownMenu(
         ) {
             val transition = rememberTransition(state, label = "menuMorph")
             val open by transition.animateFloat(
-                transitionSpec = { tween(if (targetState) MENU_OPEN_MS else MENU_CLOSE_MS, easing = MenuEase) },
+                transitionSpec = { tween(if (targetState) Motion.MenuOpen else Motion.MenuClose, easing = Motion.Smooth) },
                 label = "menuOpen",
             ) { if (it) 1f else 0f }
             val closing = !transition.targetState
 
             Surface(
                 modifier = modifier
-                    .defaultMinSize(minWidth = 140.dp)
+                    .defaultMinSize(minWidth = NovaMenu.MinWidth)
                     .graphicsLayer {
                         val p = open
                         if (closing) {
-                            val sc = 0.97f + 0.03f * p
+                            val sc = Motion.MenuCloseScale + (1f - Motion.MenuCloseScale) * p
                             scaleX = sc
                             scaleY = sc
                             alpha = p
                         } else {
                             // Start from the trigger's size (never smaller than a quarter of the menu).
-                            val fromX = if (size.width > 0f) (anchorSize.width / size.width).coerceIn(0.25f, 1f) else 0.9f
-                            val fromY = if (size.height > 0f) (anchorSize.height / size.height).coerceIn(0.25f, 1f) else 0.9f
+                            val fromX = if (size.width > 0f) (anchorSize.width / size.width).coerceIn(Motion.MenuMinStart, 1f) else 0.9f
+                            val fromY = if (size.height > 0f) (anchorSize.height / size.height).coerceIn(Motion.MenuMinStart, 1f) else 0.9f
                             scaleX = fromX + (1f - fromX) * p
                             scaleY = fromY + (1f - fromY) * p
                             alpha = (p * 3f).coerceAtMost(1f)
@@ -276,7 +270,7 @@ fun NovaDropdownMenu(
                 shape = NovaShapes.Menu,
                 color = Nova.CardRaised,
                 tonalElevation = 0.dp,
-                shadowElevation = 12.dp,
+                shadowElevation = NovaMenu.Shadow,
                 border = BorderStroke(1.dp, Nova.CardBorder),
             ) {
                 // Rows fade in slightly after the surface has started growing.

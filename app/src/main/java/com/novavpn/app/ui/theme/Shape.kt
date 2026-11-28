@@ -22,3 +22,11 @@ object NovaSpace {
     val Xl = 20.dp    // card inner padding
     val Xxl = 24.dp
 }
+
+/** Popup menu sizes (three-dot, +, per-server menus). Colours/corners: Nova.CardRaised, Nova.CardBorder, NovaShapes.Menu. */
+object NovaMenu {
+    val Width = 240.dp          // menus with several pages (three-dot) use this so the card does not resize sideways
+    val MinWidth = 140.dp       // smallest a content-sized menu gets
+    val ScreenMargin = 8.dp     // gap kept to the screen edge
+    val Shadow = 12.dp
+}

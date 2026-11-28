@@ -53,6 +53,14 @@ object Motion {
     const val Short = 200
     const val Medium = 300
     const val Long = 450
+
+    /** Popup menu morph (transitions.dev "Menu dropdown"): grows from its trigger, closes faster. */
+    const val MenuOpen = 250
+    const val MenuClose = 150
+    /** Closing menus shrink only slightly. */
+    const val MenuCloseScale = 0.97f
+    /** A menu never starts smaller than this fraction of its final size. */
+    const val MenuMinStart = 0.25f
     const val Overlap = 90
 
     /** Screen-to-screen fade. Outrun uses 700; lower this if it feels slow. */
@@ -182,13 +190,13 @@ fun menuPageTransition(forward: Boolean): ContentTransform {
 
 /**
  * Title row <-> search field. Same feel as the menu morph: the search field grows out of the search
- * button (from the right edge) over 250ms and shrinks back into it over 150ms, while the title row
+ * button (from the right edge) over Motion.MenuOpen and shrinks back into it over Motion.MenuClose, while the title row
  * simply fades.
  */
 fun searchTransition(opening: Boolean): ContentTransform = if (opening) {
     ContentTransform(
         fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)) +
-            expandHorizontally(tween(250, easing = Motion.Smooth), expandFrom = Alignment.End),
+            expandHorizontally(tween(Motion.MenuOpen, easing = Motion.Smooth), expandFrom = Alignment.End),
         fadeOut(tween(Motion.Fast)),
         1f,
         SizeTransform(clip = false),
@@ -197,7 +205,7 @@ fun searchTransition(opening: Boolean): ContentTransform = if (opening) {
     ContentTransform(
         fadeIn(tween(Motion.Short, delayMillis = Motion.Overlap / 2, easing = Motion.Enter)),
         fadeOut(tween(Motion.Short)) +
-            shrinkHorizontally(tween(150, easing = Motion.Smooth), shrinkTowards = Alignment.End),
+            shrinkHorizontally(tween(Motion.MenuClose, easing = Motion.Smooth), shrinkTowards = Alignment.End),
         -1f,
         SizeTransform(clip = false),
     )

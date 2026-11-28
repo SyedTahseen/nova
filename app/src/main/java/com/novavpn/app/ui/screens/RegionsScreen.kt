@@ -100,6 +100,7 @@ import com.novavpn.app.ui.components.SignalIcon
 import com.novavpn.app.ui.components.chipSurface
 import com.novavpn.app.ui.scanQrCode
 import com.novavpn.app.ui.theme.Nova
+import com.novavpn.app.ui.theme.NovaMenu
 
 private data class Confirm(val title: String, val message: String, val action: String, val run: () -> Unit)
 
@@ -508,7 +509,7 @@ private fun RegionsHeader(
             NovaIconPill(onClick = { page = "root"; moreOpen = true }, label = "More options") { MoreIcon(Nova.White) }
             NovaDropdownMenu(
                 expanded = moreOpen,
-                fixedWidth = 240.dp, // pages differ in width; keep the card steady while switching
+                fixedWidth = NovaMenu.Width, // pages differ in width; keep the card steady while switching
                 // The page is reset when the menu OPENS (see the pill above), never while it is fading out,
                 // otherwise the menu flashes its root page during the exit animation.
                 onDismissRequest = { moreOpen = false },
