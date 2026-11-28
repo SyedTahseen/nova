@@ -56,7 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novavpn.app.ui.components.ChevronIcon
-import com.novavpn.app.ui.components.OrbView
+import com.novavpn.app.ui.components.PowerDial
 import com.novavpn.app.ui.components.SlideDirection
 import com.novavpn.app.ui.components.SlideToggle
 import com.novavpn.app.ui.theme.Nova
@@ -116,16 +116,14 @@ fun ConnectedScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Orb + status + timer
+            // Power dial + status + timer
             Box(
                 Modifier.fillMaxWidth().height(330.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                OrbView(
-                    Modifier.size(330.dp),
-                    speed = if (live) 1f else 4f,
-                )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PowerDial(Modifier.size(200.dp), live = live)
+                    Spacer(Modifier.height(14.dp))
                     val statusColor by animateColorAsState(
                         if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
                         tween(Motion.Long, easing = Motion.Standard), label = "statusColor",
