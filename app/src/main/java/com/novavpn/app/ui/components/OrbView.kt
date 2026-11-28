@@ -88,11 +88,30 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
                     moveTo(s.x, s.y)
                     cubicTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y)
                 }
+                val tint = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
+
+                // Smoke: the same curve drawn as stacked strokes, wide + faint to narrow + stronger,
+                // so the ribbon has feathered translucent edges instead of a hard outline.
                 drawPath(
                     path,
-                    color = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
-                        .copy(alpha = 0.16f + 0.09f * (i % 3)),
-                    style = Stroke(width = (1.5f + (i % 4)).dp.toPx(), cap = StrokeCap.Round),
+                    color = tint.copy(alpha = 0.035f + 0.015f * (i % 3)),
+                    style = Stroke(width = r * (0.20f + 0.03f * (i % 3)), cap = StrokeCap.Round),
+                )
+                drawPath(
+                    path,
+                    color = tint.copy(alpha = 0.06f + 0.02f * (i % 3)),
+                    style = Stroke(width = r * (0.11f + 0.015f * (i % 4)), cap = StrokeCap.Round),
+                )
+                drawPath(
+                    path,
+                    color = tint.copy(alpha = 0.10f + 0.04f * (i % 3)),
+                    style = Stroke(width = r * 0.045f, cap = StrokeCap.Round),
+                )
+                // thin bright line along the ribbon
+                drawPath(
+                    path,
+                    color = tint.copy(alpha = 0.16f + 0.09f * (i % 3)),
+                    style = Stroke(width = (1f + (i % 3) * 0.6f).dp.toPx(), cap = StrokeCap.Round),
                 )
             }
 
