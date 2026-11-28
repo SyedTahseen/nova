@@ -131,7 +131,7 @@ fun ConnectedScreen(
                         .requiredSize(orbSize),
                     contentAlignment = Alignment.Center,
                 ) {
-                    OrbView(Modifier.fillMaxSize(), speed = if (live) 1f else 4f)
+                    OrbView(Modifier.fillMaxSize(), speed = if (live) 1f else 3f)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         val statusColor by animateColorAsState(
                             if (live) Nova.Lime else Nova.White.copy(alpha = 0.85f),
@@ -169,7 +169,7 @@ fun ConnectedScreen(
                 Text(
                     vpn.regionLabel ?: "",
                     color = Nova.White,
-                    style = NovaType.BodyStrong,
+                    style = NovaType.Body,
                     modifier = Modifier.weight(1f),
                 )
                 val btnShape = NovaShapes.Control

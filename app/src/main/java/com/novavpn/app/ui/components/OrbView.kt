@@ -34,7 +34,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
     val t by infinite.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween((26000 / speed).toInt(), easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween((36000 / speed).toInt(), easing = LinearEasing)),
         label = "t",
     )
 
