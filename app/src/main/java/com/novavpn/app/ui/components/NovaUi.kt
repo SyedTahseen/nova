@@ -1,6 +1,29 @@
 package com.novavpn.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,7 +42,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
@@ -131,7 +153,13 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 
 /**
  * The app's popup menu (three-dot, + and per-server menus). Same card surface as the rest of the app:
- * Nova.CardRaised fill, 1dp Nova.CardBorder outline, Card-style rounded corners, no tonal tint.
+ * Nova.CardRaised fill, 1dp Nova.CardBorder outline, rounded corners.
+ *
+ * Built on a plain Popup instead of Material's DropdownMenu so the open/close animation is ours:
+ * a short scale + fade from the top-right corner, done with graphicsLayer (GPU only, no relayout)
+ * and no window-level shadow, which is what made the Material menu feel heavy.
+ * Place it inside a Box next to the button; it aligns to the button's right edge.
+ * [offset].x moves it right, [offset].y moves it down.
  */
 @Composable
 fun NovaDropdownMenu(
@@ -139,21 +167,78 @@ fun NovaDropdownMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(0.dp, 6.dp),
-    content: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
+    // Keep the popup composed until the close animation has finished.
+    val visibleState = remember { MutableTransitionState(false) }
+    visibleState.targetState = expanded
+    if (!visibleState.currentState && !visibleState.targetState) return
+
+    val density = LocalDensity.current
+    val position = remember(offset, density) {
+        MenuPositionProvider(
+            offsetX = with(density) { offset.x.roundToPx() },
+            offsetY = with(density) { offset.y.roundToPx() },
+            margin = with(density) { 8.dp.roundToPx() },
+        )
+    }
+    val transition = updateTransition(visibleState, label = "novaMenu")
+    val scale by transition.animateFloat(
+        transitionSpec = { tween(if (targetState) 170 else 110, easing = FastOutSlowInEasing) },
+        label = "scale",
+    ) { if (it) 1f else 0.92f }
+    val alpha by transition.animateFloat(
+        transitionSpec = { tween(if (targetState) 110 else 90) },
+        label = "alpha",
+    ) { if (it) 1f else 0f }
+
+    Popup(
+        popupPositionProvider = position,
         onDismissRequest = onDismissRequest,
-        modifier = modifier.defaultMinSize(minWidth = 220.dp),
-        offset = offset,
-        shape = NovaShapes.Menu,
-        containerColor = Nova.CardRaised,
-        tonalElevation = 0.dp,
-        shadowElevation = 12.dp,
-        border = BorderStroke(1.dp, Nova.CardBorder),
+        properties = PopupProperties(focusable = true),
     ) {
-        // Inner padding so the rounded corners never clip the first / last row.
-        Column(Modifier.padding(vertical = NovaSpace.S)) { content() }
+        Column(
+            modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                    transformOrigin = TransformOrigin(1f, 0f)
+                }
+                .width(IntrinsicSize.Max)
+                .defaultMinSize(minWidth = 220.dp)
+                .heightIn(max = 480.dp)
+                .clip(NovaShapes.Menu)
+                .background(Nova.CardRaised)
+                .border(1.dp, Nova.CardBorder, NovaShapes.Menu)
+                .animateContentSize(tween(160, easing = FastOutSlowInEasing))
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = NovaSpace.S),
+            content = content,
+        )
+    }
+}
+
+private class MenuPositionProvider(
+    private val offsetX: Int,
+    private val offsetY: Int,
+    private val margin: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val maxX = (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)
+        val x = (anchorBounds.right - popupContentSize.width + offsetX).coerceIn(margin, maxX)
+        var y = anchorBounds.bottom + offsetY
+        if (y + popupContentSize.height > windowSize.height - margin) {
+            val above = anchorBounds.top - popupContentSize.height - offsetY
+            y = if (above >= margin) above
+            else (windowSize.height - popupContentSize.height - margin).coerceAtLeast(margin)
+        }
+        return IntOffset(x, y)
     }
 }
 
