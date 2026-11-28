@@ -69,10 +69,11 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
             center = c,
         )
 
-        // Swirling strands, clipped to the sphere
+        // Swirl strips: broad translucent bands (not thin lines), clipped to the sphere.
+        // Their curves bend in only to ~0.5r, so the middle stays dark behind the status text.
         val clip = Path().apply { addOval(Rect(c, r)) }
         clipPath(clip) {
-            val count = 18
+            val count = 12
             for (i in 0 until count) {
                 val dir = if (i % 2 == 0) 1f else -1f
                 val ph = t * (0.6f + (i % 5) * 0.18f) * dir + i * (2f * PI.toFloat() / count)
@@ -80,20 +81,23 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
                 fun pt(a: Float, k: Float) = Offset(c.x + cos(a) * r * k, c.y + sin(a) * r * k)
 
                 val s = pt(ph, 1.03f)
-                val c1 = pt(ph + 0.9f, 0.70f + 0.15f * sin(t * 2f + i))
-                val c2 = pt(ph + 1.9f, 0.58f + 0.15f * cos(t * 1.5f + i))
+                val c1 = pt(ph + 0.9f, 0.80f + 0.12f * sin(t * 2f + i))
+                val c2 = pt(ph + 1.9f, 0.68f + 0.12f * cos(t * 1.5f + i))
                 val e = pt(ph + 2.8f, 1.03f)
 
                 val path = Path().apply {
                     moveTo(s.x, s.y)
                     cubicTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y)
                 }
-                drawPath(
-                    path,
-                    color = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
-                        .copy(alpha = 0.16f + 0.09f * (i % 3)),
-                    style = Stroke(width = (1.5f + (i % 4)).dp.toPx(), cap = StrokeCap.Round),
-                )
+                val tint = lerp(Nova.Lime, Color.White, (i % 4) / 4f)
+                val w = r * (0.15f + 0.04f * (i % 3))        // band width: 15–23% of the radius
+
+                // feathered edge -> body -> brighter core, so the strip reads as translucent smoke
+                drawPath(path, tint.copy(alpha = 0.05f), style = Stroke(w * 1.5f, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.09f), style = Stroke(w, cap = StrokeCap.Round))
+                drawPath(path, tint.copy(alpha = 0.11f + 0.03f * (i % 3)), style = Stroke(w * 0.45f, cap = StrokeCap.Round))
+                // fine line along the strip
+                drawPath(path, tint.copy(alpha = 0.22f), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
             }
 
             // Soft specular highlight
@@ -108,17 +112,20 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
                 center = Offset(c.x - r * 0.3f, c.y - r * 0.38f),
             )
 
+            // gentle fade so the very middle stays clear
+            drawCircle(
+                brush = Brush.radialGradient(
+                    0f to Nova.OrbDeep.copy(alpha = 0.9f),
+                    0.5f to Nova.OrbDeep.copy(alpha = 0.9f),
+                    1f to Color.Transparent,
+                    center = c,
+                    radius = r * 0.5f,
+                ),
+                radius = r * 0.5f,
+                center = c,
+            )
+
         }
 
-        // Rim + fake bloom
-        drawCircle(Nova.Lime.copy(alpha = 0.9f), r, c, style = Stroke(2.dp.toPx()))
-        for (k in 1..5) {
-            drawCircle(
-                Nova.Lime.copy(alpha = 0.16f / k),
-                radius = r + k * 2.6.dp.toPx(),
-                center = c,
-                style = Stroke(3.dp.toPx()),
-            )
-        }
     }
 }
