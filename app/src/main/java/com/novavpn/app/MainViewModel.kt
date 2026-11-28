@@ -82,7 +82,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     /**
-     * Pills shown on Home (at most [HOME_PILLS]): every recently used server first (newest first),
+     * Pills shown on Home (at most [HOME_PILLS]): up to [HOME_RECENT] recently used servers first (newest first),
      * then the remaining slots are filled with the fastest tested ones, then anything else. The selected server is always included.
      *
      * The last result is saved and shown instantly on the next launch, and ping results only
@@ -90,7 +90,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun pickPills(regions: List<Region>, recent: List<String>, pings: Map<String, Int?>): List<Region> {
         val byId = regions.associateBy { it.id }
-        val recents = recent.mapNotNull { byId[it] }
+        val recents = recent.mapNotNull { byId[it] }.take(HOME_RECENT)
         val fastest = regions.filter { pings[it.id] != null }.sortedBy { pings[it.id] }
         return (recents + fastest + regions).distinctBy { it.id }.take(HOME_PILLS)
     }
@@ -382,6 +382,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_RECENT = "recent_regions"
         const val KEY_PILLS = "home_pills"
         const val HOME_PILLS = 10
+        const val HOME_RECENT = 5
         const val HOME_RECENT_KEEP = 20
     }
 }
