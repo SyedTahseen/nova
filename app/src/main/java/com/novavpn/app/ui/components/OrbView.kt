@@ -1,5 +1,8 @@
 package com.novavpn.app.ui.components
 
+import android.graphics.RuntimeShader
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -7,6 +10,13 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -26,11 +36,130 @@ import kotlin.math.floor
 import kotlin.math.sin
 
 /**
- * The glowing lime plasma sphere. Drawn entirely with Canvas so it works on every API level.
- * [speed] > 1 spins the swirls faster (used while connecting).
+ * The glowing lime sphere with smoke inside.
+ * Android 13+ draws real smoke with a noise shader (domain-warped fractal noise); older versions fall back to
+ * [CanvasOrb], which fakes it with drifting translucent wisps. [speed] > 1 makes the smoke move faster.
  */
 @Composable
 fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
+    if (Build.VERSION.SDK_INT >= 33) SmokeOrb(modifier, speed) else CanvasOrb(modifier, speed)
+}
+
+private fun DrawScope.drawOuterGlow(c: Offset, r: Float) {
+    drawCircle(
+        brush = Brush.radialGradient(
+            0f to Nova.Lime.copy(alpha = 0.34f),
+            0.55f to Nova.Lime.copy(alpha = 0.11f),
+            1f to Color.Transparent,
+            center = c,
+            radius = r * 1.5f,
+        ),
+        radius = r * 1.5f,
+        center = c,
+    )
+}
+
+@RequiresApi(33)
+@Composable
+private fun SmokeOrb(modifier: Modifier, speed: Float) {
+    val shader = remember { RuntimeShader(SMOKE_AGSL) }
+    val brush = remember(shader) { ShaderBrush(shader) }
+    var time by remember { mutableFloatStateOf(0f) }
+    val currentSpeed by rememberUpdatedState(speed)
+    LaunchedEffect(Unit) {
+        // Accumulate time (instead of looping a value) so a change of speed never makes the smoke jump.
+        var last = 0L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { now ->
+                if (last != 0L) time += (now - last) / 1_000_000_000f * currentSpeed
+                last = now
+            }
+        }
+    }
+    Canvas(modifier) {
+        val c = center
+        val r = size.minDimension / 2f * 0.76f
+        drawOuterGlow(c, r)
+        shader.setFloatUniform("center", c.x, c.y)
+        shader.setFloatUniform("radius", r)
+        shader.setFloatUniform("time", time)
+        drawCircle(brush, r, c)
+    }
+}
+
+/** Smoke: fractal noise warped by more noise, so it folds and curls and keeps changing shape. */
+private const val SMOKE_AGSL = """
+uniform float2 center;
+uniform float radius;
+uniform float time;
+
+float hash(float2 p) {
+    p = fract(p * float2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + float2(1.0, 0.0));
+    float c = hash(i + float2(0.0, 1.0));
+    float d = hash(i + float2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(float2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+        v += a * noise(p);
+        p = p * 2.03 + float2(11.7, 7.3);
+        a *= 0.5;
+    }
+    return v;
+}
+
+half4 main(float2 fragCoord) {
+    float2 uv = (fragCoord - center) / radius;
+    float d = length(uv);
+    float aa = 1.5 / radius;
+    float mask = 1.0 - smoothstep(1.0 - aa, 1.0, d);
+    if (mask <= 0.0) return half4(0.0);
+
+    float t = time * 0.05;
+    float2 p = uv * 1.5;
+
+    // warp the coordinates twice: this is what makes it flow like smoke instead of blobs
+    float2 q = float2(fbm(p + float2(0.0, t)), fbm(p + float2(5.2, 1.3) - t));
+    float2 w = float2(fbm(p + 2.5 * q + float2(1.7, 9.2) + 0.7 * t),
+                      fbm(p + 2.5 * q + float2(8.3, 2.8) - 0.5 * t));
+    float f = fbm(p + 2.8 * w);
+
+    float dens = smoothstep(0.38, 0.85, f);
+    float ridge = 1.0 - abs(2.0 * fbm(p * 1.3 + 3.0 * w) - 1.0);   // thin streaks inside the smoke
+    dens *= 0.55 + 0.45 * ridge;
+
+    // empty middle, smoke gathers toward the edge
+    dens *= smoothstep(0.18, 0.70, d);
+
+    float3 deep = float3(0.15, 0.18, 0.0);
+    float3 mid = float3(0.43, 0.52, 0.0);
+    float3 bright = float3(0.82, 0.93, 0.0);
+    float3 col = mix(deep, mid, dens * 0.85);
+    col = mix(col, bright, pow(dens, 2.2) * 0.6);
+
+    // soft edge lift (kept small: less inner glow)
+    col = mix(col, float3(0.78, 0.92, 0.1), smoothstep(0.80, 1.0, d) * 0.25);
+
+    return half4(float4(col * mask, mask));
+}
+"""
+
+/** Fallback for Android 12 and older: translucent wisps drawn with Canvas. */
+@Composable
+private fun CanvasOrb(modifier: Modifier, speed: Float) {
     val infinite = rememberInfiniteTransition(label = "orb")
     val t by infinite.animateFloat(
         initialValue = 0f,
@@ -43,26 +172,15 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
         val c = center
         val r = size.minDimension / 2f * 0.76f
 
-        // Outer glow
-        drawCircle(
-            brush = Brush.radialGradient(
-                0f to Nova.Lime.copy(alpha = 0.42f),
-                0.55f to Nova.Lime.copy(alpha = 0.14f),
-                1f to Color.Transparent,
-                center = c,
-                radius = r * 1.5f,
-            ),
-            radius = r * 1.5f,
-            center = c,
-        )
+        drawOuterGlow(c, r)
 
         // Body
         drawCircle(
             brush = Brush.radialGradient(
                 0f to Nova.OrbDeep,
                 0.58f to Nova.OrbMid,
-                0.86f to Nova.OrbBright,
-                1f to Nova.OrbGlow,
+                0.88f to lerp(Nova.OrbMid, Nova.OrbBright, 0.55f),
+                1f to lerp(Nova.OrbBright, Nova.OrbGlow, 0.25f),
                 center = c,
                 radius = r,
             ),
@@ -122,7 +240,7 @@ fun OrbView(modifier: Modifier = Modifier, speed: Float = 1f) {
             // Soft specular highlight
             drawCircle(
                 brush = Brush.radialGradient(
-                    0f to Color.White.copy(alpha = 0.28f),
+                    0f to Color.White.copy(alpha = 0.10f),
                     1f to Color.Transparent,
                     center = Offset(c.x - r * 0.3f, c.y - r * 0.38f),
                     radius = r * 0.55f,
