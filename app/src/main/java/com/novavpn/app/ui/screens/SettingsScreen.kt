@@ -90,6 +90,7 @@ fun SettingsScreen(
             modifier = Modifier.padding(start = 4.dp, top = 14.dp),
         )
         SettingsRow("Nova VPN", "Version $version", onClick = null)
+        SettingsRow("Core", "Xray ${remember { com.novavpn.app.core.XrayCore.version() }}", onClick = null)
     }
 }
 

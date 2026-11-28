@@ -54,3 +54,7 @@ Once connected it sends one real request through the tunnel; if that fails an or
 
 The ⋮ menu has Test, Sort (default / fastest / name), Group by (source / country / protocol / none) and Delete (unreachable, duplicates, manual servers, subscriptions, all).
 Subscription URLs may be plain http, so cleartext traffic is allowed in the manifest.
+
+## Xray core version
+
+The workflow downloads the latest `libv2ray.aar` release of AndroidLibXrayLite on every build. The core version in use is shown in Settings → About → Core.
